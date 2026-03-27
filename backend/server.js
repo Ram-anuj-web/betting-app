@@ -1,4 +1,5 @@
 const express = require("express");
+console.log("Starting server...");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const bcrypt = require("bcryptjs");
@@ -9,9 +10,9 @@ app.use(express.json());
 
 const CRICKET_API_KEY = "0db27b38-9a1c-4e30-86f3-dda28ca1e0c8";
 
-mongoose.connect("mongodb://127.0.0.1:27017/betting")
+mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB connected"))
-  .catch(err => console.error("MongoDB error:", err));
+  .catch(err => console.log(err));
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
 const userSchema = new mongoose.Schema({
@@ -565,7 +566,14 @@ app.get("/leaderboard", async (req, res) => {
 });
 
 // ─── Start ────────────────────────────────────────────────────────────────────
-app.listen(5000, () => {
-  console.log("Server running on port 5000");
+// --- Start ---
+const PORT = process.env.PORT || 5000;
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+  try {
   checkAndSettleBets();
+} catch (err) {
+  console.log("Error in checkAndSettleBets:", err);
+}
 });
