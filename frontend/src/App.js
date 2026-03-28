@@ -24,33 +24,35 @@ export default function App() {
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [betAmount, setBetAmount] = useState("");
   const [betPlaced, setBetPlaced] = useState(null);
-  const [myBets, setMyBets] = useState([]);
+  const [myBets, setMyBets] = useState([]);           // solo bets only (for pending count)
+  const [allHistory, setAllHistory] = useState([]);   // unified history
   const [leaderboard, setLeaderboard] = useState([]);
   const [animatePoints, setAnimatePoints] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [prefilledMatch, setPrefilledMatch] = useState(null);
 
-  // ─── FIX 2: Back button support ───────────────────────────────────────────
+  // ─── Back button support ───────────────────────────────────────────────────
   useEffect(() => {
     window.history.pushState({ screen }, "", "");
   }, [screen]);
 
   useEffect(() => {
     const handleBack = (e) => {
-      if (e.state?.screen) {
-        setScreen(e.state.screen);
-      }
+      if (e.state?.screen) setScreen(e.state.screen);
     };
     window.addEventListener("popstate", handleBack);
     return () => window.removeEventListener("popstate", handleBack);
   }, []);
-  // ──────────────────────────────────────────────────────────────────────────
 
   useEffect(() => {
-    if (username) fetchMyBets();
+    if (username) {
+      fetchMyBets();
+      fetchAllHistory();
+    }
   }, [username]);
 
+  // ─── Solo bets (for pending count badge only) ──────────────────────────────
   const fetchMyBets = async () => {
     try {
       const res = await fetch(`${API}/bets/${username}`);
@@ -58,6 +60,113 @@ export default function App() {
       if (res.ok) setMyBets(data);
     } catch (err) {
       console.error("Failed to fetch bets", err);
+    }
+  };
+
+  // ─── Unified history: bets + contests + challenges ─────────────────────────
+  const fetchAllHistory = async () => {
+    try {
+      const [betsRes, contestsRes, challengesRes] = await Promise.all([
+        fetch(`${API}/bets/${username}`),
+        fetch(`${API}/contests/${username}`),
+        fetch(`${API}/challenges/${username}`),
+      ]);
+
+      const betsData      = betsRes.ok      ? await betsRes.json()      : [];
+      const contestsData  = contestsRes.ok  ? await contestsRes.json()  : { contests: [] };
+      const challengesData= challengesRes.ok? await challengesRes.json(): { challenges: [] };
+
+      const bets = Array.isArray(betsData) ? betsData : [];
+      const contests   = contestsData.contests   || [];
+      const challenges = challengesData.challenges || [];
+
+      // Normalize bets
+      const normalizedBets = bets.map(b => ({
+        _id: b._id,
+        type: "bet",
+        typeLabel: "Solo Bet",
+        typeEmoji: "🎯",
+        matchLabel: b.matchLabel,
+        team: b.team,
+        amount: b.amount,
+        status: b.status,                        // pending | won | lost
+        createdAt: b.createdAt,
+        detail: null,
+      }));
+
+      // Normalize contests
+      const normalizedContests = contests.map(c => {
+        const myEntry = c.participants?.find(p => p.username === username);
+        const totalPot = c.entryFee * (c.participants?.length || 1);
+        const winners = c.winner ? c.winner.split(", ") : [];
+        let status = "pending";
+        if (c.status === "settled") {
+          status = winners.includes(username) ? "won" : "lost";
+        } else if (c.status === "cancelled") {
+          status = "cancelled";
+        }
+        const winnerCount = winners.length || 1;
+        const prize = c.status === "settled" && winners.includes(username)
+          ? Math.floor(totalPot / winnerCount)
+          : 0;
+        return {
+          _id: c._id,
+          type: "contest",
+          typeLabel: "Contest",
+          typeEmoji: "🏆",
+          matchLabel: c.matchLabel,
+          team: myEntry?.team || "—",
+          amount: c.entryFee,
+          prize,
+          totalPot,
+          status,
+          contestStatus: c.status,
+          winningTeam: c.winningTeam,
+          contestName: c.name,
+          createdAt: c.createdAt,
+          detail: `${c.participants?.length || 1}/${c.maxPlayers} players`,
+        };
+      });
+
+      // Normalize challenges
+      const normalizedChallenges = challenges
+        .filter(c => c.status !== "cancelled")
+        .map(c => {
+          const isChallenger = c.challenger === username;
+          const myTeam = isChallenger ? c.challengerTeam : c.opponentTeam;
+          let status = "pending";
+          if (c.status === "settled") {
+            if (c.winner === "draw") status = "draw";
+            else status = c.winner === username ? "won" : "lost";
+          } else if (c.status === "active") {
+            status = "active";
+          }
+          return {
+            _id: c._id,
+            type: "challenge",
+            typeLabel: "Challenge",
+            typeEmoji: "⚔️",
+            matchLabel: c.matchLabel,
+            team: myTeam || "—",
+            amount: c.wager,
+            prize: c.status === "settled" && c.winner === username ? c.wager * 2 : 0,
+            status,
+            opponent: isChallenger ? c.opponent : c.challenger,
+            createdAt: c.createdAt,
+            detail: isChallenger ? `You challenged ${c.opponent || "invited players"}` : `Challenged by ${c.challenger}`,
+          };
+        });
+
+      // Merge and sort newest first
+      const merged = [
+        ...normalizedBets,
+        ...normalizedContests,
+        ...normalizedChallenges,
+      ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+      setAllHistory(merged);
+    } catch (err) {
+      console.error("Failed to fetch history", err);
     }
   };
 
@@ -102,12 +211,7 @@ export default function App() {
   };
 
   const handleBetOnMatch = (matchInfo) => {
-    const iplSport = {
-      id: "cricket",
-      name: "Cricket",
-      emoji: "🏏",
-      teams: matchInfo.teams,
-    };
+    const iplSport = { id: "cricket", name: "Cricket", emoji: "🏏", teams: matchInfo.teams };
     setSelectedSport(iplSport);
     setSelectedTeam(null);
     setBetAmount("");
@@ -124,7 +228,6 @@ export default function App() {
       setError("Please go to 🏏 IPL tab and click Bet Now on a match first!");
       return;
     }
-
     setLoading(true);
     setError("");
     try {
@@ -140,7 +243,6 @@ export default function App() {
         }),
       });
       const data = await res.json();
-
       if (res.ok) {
         setAnimatePoints(true);
         setTimeout(() => setAnimatePoints(false), 1000);
@@ -148,6 +250,7 @@ export default function App() {
         setLockedPoints(data.lockedPoints);
         setBetPlaced({ amount, team: selectedTeam, matchLabel: prefilledMatch.matchLabel });
         fetchMyBets();
+        fetchAllHistory();
         fetchLeaderboard();
         setTimeout(() => {
           setBetPlaced(null);
@@ -171,22 +274,52 @@ export default function App() {
     setPoints(1000);
     setLockedPoints(0);
     setMyBets([]);
+    setAllHistory([]);
     setLeaderboard([]);
     setScreen("auth");
     setAuthMode("login");
     setPrefilledMatch(null);
   };
 
+  // ─── Status helpers ────────────────────────────────────────────────────────
   const statusColor = (status) => {
-    if (status === "won") return "#1D9E75";
-    if (status === "lost") return "#E24B4A";
-    return "#BA7517";
+    if (status === "won")       return "#1D9E75";
+    if (status === "lost")      return "#E24B4A";
+    if (status === "draw")      return "#888780";
+    if (status === "active")    return "#7F77DD";
+    if (status === "cancelled") return "#888780";
+    return "#BA7517"; // pending
   };
 
   const statusEmoji = (status) => {
-    if (status === "won") return "🏆";
-    if (status === "lost") return "😢";
+    if (status === "won")       return "🏆";
+    if (status === "lost")      return "😢";
+    if (status === "draw")      return "🤝";
+    if (status === "active")    return "⚡";
+    if (status === "cancelled") return "❌";
     return "⏳";
+  };
+
+  const statusLabel = (status) => {
+    if (status === "won")       return "WON";
+    if (status === "lost")      return "LOST";
+    if (status === "draw")      return "DRAW";
+    if (status === "active")    return "ACTIVE";
+    if (status === "cancelled") return "CANCELLED";
+    return "PENDING";
+  };
+
+  const pointsDisplay = (item) => {
+    if (item.status === "won") {
+      if (item.type === "bet")       return `+${item.amount} pts`;
+      if (item.type === "contest")   return `+${item.prize - item.amount} pts profit`;
+      if (item.type === "challenge") return `+${item.amount} pts profit`;
+    }
+    if (item.status === "lost")      return `-${item.amount} pts`;
+    if (item.status === "draw")      return `refunded`;
+    if (item.status === "cancelled") return `refunded`;
+    if (item.status === "active")    return `🔒 ${item.amount} pts`;
+    return `🔒 ${item.amount} pts`;
   };
 
   const leaderboardList = () => {
@@ -196,13 +329,14 @@ export default function App() {
   };
 
   const maxPoints = Math.max(...leaderboardList().map(p => p.points), 1000);
+  const pendingCount = myBets.filter(b => b.status === "pending").length;
 
   return (
     <div className="app">
       <div className="bg-grid" />
       <div className="bg-glow" />
 
-      {/* Auth Screen */}
+      {/* ── Auth Screen ── */}
       {screen === "auth" && (
         <div className="login-screen">
           <div className="login-box">
@@ -229,26 +363,21 @@ export default function App() {
         </div>
       )}
 
-      {/* Main App */}
+      {/* ── Main App ── */}
       {screen !== "auth" && (
         <>
           <nav className="nav">
-            {/* ✅ FIX 1: Logo navigates to home on click */}
-            <div
-              className="nav-logo"
-              onClick={() => setScreen("home")}
-              style={{ cursor: "pointer" }}
-            >
+            <div className="nav-logo" onClick={() => setScreen("home")} style={{ cursor: "pointer" }}>
               ⚡ FANTASYBET
             </div>
             <div className="nav-links">
               <button className={screen === "home" ? "active" : ""} onClick={() => setScreen("home")}>Home</button>
               <button className={screen === "matches" ? "active" : ""} onClick={() => setScreen("matches")}>🏏 IPL</button>
               <button className={screen === "leaderboard" ? "active" : ""} onClick={() => { fetchLeaderboard(); setScreen("leaderboard"); }}>Leaderboard</button>
-              <button className={screen === "history" ? "active" : ""} onClick={() => { fetchMyBets(); setScreen("history"); }}>
-                History {myBets.filter(b => b.status === "pending").length > 0 && (
+              <button className={screen === "history" ? "active" : ""} onClick={() => { fetchAllHistory(); setScreen("history"); }}>
+                History {pendingCount > 0 && (
                   <span style={{ background: "#BA7517", color: "#fff", borderRadius: 99, padding: "1px 6px", fontSize: 10, marginLeft: 4 }}>
-                    {myBets.filter(b => b.status === "pending").length}
+                    {pendingCount}
                   </span>
                 )}
               </button>
@@ -271,7 +400,7 @@ export default function App() {
             </div>
           </nav>
 
-          {/* Home Screen */}
+          {/* ── Home Screen ── */}
           {screen === "home" && (
             <div className="screen home-screen">
               <div className="hero">
@@ -286,7 +415,7 @@ export default function App() {
                 </p>
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                   <button className="btn-primary" onClick={() => setScreen("matches")}>🏏 Bet on IPL →</button>
-                  <button className="btn-primary" onClick={() => { fetchMyBets(); setScreen("history"); }} style={{ background: "#1D9E75" }}>My Bets →</button>
+                  <button className="btn-primary" onClick={() => { fetchAllHistory(); setScreen("history"); }} style={{ background: "#1D9E75" }}>My Bets →</button>
                 </div>
               </div>
 
@@ -302,33 +431,32 @@ export default function App() {
 
               <div className="stats-row">
                 <div className="stat-box">
-                  <div className="stat-num">{myBets.length}</div>
+                  <div className="stat-num">{allHistory.length}</div>
                   <div className="stat-label">Total Bets</div>
                 </div>
                 <div className="stat-box">
-                  <div className="stat-num">{myBets.filter(b => b.status === "won").length}</div>
+                  <div className="stat-num">{allHistory.filter(b => b.status === "won").length}</div>
                   <div className="stat-label">Wins</div>
                 </div>
                 <div className="stat-box">
-                  <div className="stat-num">{myBets.filter(b => b.status === "pending").length}</div>
+                  <div className="stat-num">{allHistory.filter(b => b.status === "pending" || b.status === "active").length}</div>
                   <div className="stat-label">Pending</div>
                 </div>
               </div>
             </div>
           )}
 
-          {/* IPL Matches Screen */}
+          {/* ── IPL Matches Screen ── */}
           {screen === "matches" && (
             <div className="screen">
               <Matches onBetOnMatch={handleBetOnMatch} />
             </div>
           )}
 
-          {/* Bet Screen */}
+          {/* ── Bet Screen ── */}
           {screen === "bet" && (
             <div className="screen bet-screen">
               <h2 className="screen-title">Place Your Bet</h2>
-
               {!prefilledMatch ? (
                 <div style={{ textAlign: "center", padding: 40 }}>
                   <div style={{ fontSize: 48, marginBottom: 16 }}>🏏</div>
@@ -403,13 +531,12 @@ export default function App() {
             </div>
           )}
 
-          {/* Leaderboard Screen */}
+          {/* ── Leaderboard Screen ── */}
           {screen === "leaderboard" && (
             <div className="screen leaderboard-screen">
               <h2 className="screen-title">🏆 Leaderboard</h2>
               <button className="btn-primary" style={{ marginBottom: 20, padding: "0.5rem 1.5rem" }}
                 onClick={fetchLeaderboard}>🔄 Refresh</button>
-
               {leaderboard.length === 0 ? (
                 <div className="empty-state">Loading players...</div>
               ) : (
@@ -422,8 +549,7 @@ export default function App() {
                       <div className="player-name">{player.name}</div>
                       <div className="player-points">{player.points.toLocaleString()} pts</div>
                       <div className="points-bar">
-                        <div className="points-fill"
-                          style={{ width: `${(player.points / maxPoints) * 100}%` }} />
+                        <div className="points-fill" style={{ width: `${(player.points / maxPoints) * 100}%` }} />
                       </div>
                     </div>
                   ))}
@@ -432,34 +558,84 @@ export default function App() {
             </div>
           )}
 
-          {/* History / My Bets Screen */}
+          {/* ── History / My Bets Screen ── */}
           {screen === "history" && (
             <div className="screen history-screen">
               <h2 className="screen-title">📜 My Bets</h2>
               <button className="btn-primary" style={{ marginBottom: 20, padding: "0.5rem 1.5rem" }}
-                onClick={fetchMyBets}>🔄 Refresh</button>
+                onClick={fetchAllHistory}>🔄 Refresh</button>
 
-              {myBets.length === 0 ? (
+              {/* Summary row */}
+              {allHistory.length > 0 && (
+                <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
+                  {[
+                    { label: "All", filter: null, color: "#7F77DD" },
+                    { label: "🎯 Solo", filter: "bet", color: "#BA7517" },
+                    { label: "🏆 Contests", filter: "contest", color: "#1D9E75" },
+                    { label: "⚔️ Challenges", filter: "challenge", color: "#E24B4A" },
+                  ].map(tab => (
+                    <span key={tab.label} style={{
+                      fontSize: 12, padding: "4px 12px", borderRadius: 99,
+                      background: `${tab.color}22`, color: tab.color,
+                      border: `1px solid ${tab.color}44`, fontWeight: 600,
+                    }}>
+                      {tab.label} ({tab.filter ? allHistory.filter(h => h.type === tab.filter).length : allHistory.length})
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {allHistory.length === 0 ? (
                 <div className="empty-state">
-                  No bets yet! Go to 🏏 IPL tab and place a bet 🎯
+                  No bets yet! Go to 🏏 IPL tab, ⚔️ Multiplayer, or join a contest 🎯
                 </div>
               ) : (
                 <div className="history-list">
-                  {myBets.map((b, i) => (
-                    <div key={i}
-                      className={`history-row ${b.status === "won" ? "win" : b.status === "lost" ? "lose" : ""}`}
-                      style={{ borderLeft: `3px solid ${statusColor(b.status)}` }}>
-                      <div className="history-sport">{statusEmoji(b.status)}</div>
+                  {allHistory.map((item) => (
+                    <div key={`${item.type}-${item._id}`}
+                      className={`history-row ${item.status === "won" ? "win" : item.status === "lost" ? "lose" : ""}`}
+                      style={{ borderLeft: `3px solid ${statusColor(item.status)}` }}>
+
+                      {/* Left: emoji */}
+                      <div className="history-sport">{statusEmoji(item.status)}</div>
+
+                      {/* Middle: details */}
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 600, fontSize: 14 }}>{b.matchLabel}</div>
-                        <div style={{ fontSize: 12, opacity: 0.7, marginTop: 2 }}>Picked: {b.team}</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                          <span style={{ fontWeight: 600, fontSize: 14 }}>{item.matchLabel}</span>
+                          <span style={{
+                            fontSize: 10, padding: "1px 7px", borderRadius: 99, fontWeight: 600,
+                            background: item.type === "bet" ? "#BA751722" : item.type === "contest" ? "#1D9E7522" : "#7F77DD22",
+                            color: item.type === "bet" ? "#BA7517" : item.type === "contest" ? "#1D9E75" : "#7F77DD",
+                          }}>
+                            {item.typeEmoji} {item.typeLabel}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: 12, opacity: 0.7, marginTop: 2 }}>
+                          Picked: <strong>{item.team}</strong>
+                          {item.type === "contest" && item.contestName && (
+                            <span style={{ marginLeft: 6, opacity: 0.6 }}>· {item.contestName}</span>
+                          )}
+                          {item.type === "challenge" && item.opponent && (
+                            <span style={{ marginLeft: 6, opacity: 0.6 }}>· vs {item.opponent}</span>
+                          )}
+                        </div>
+                        {item.detail && (
+                          <div style={{ fontSize: 11, opacity: 0.5, marginTop: 1 }}>{item.detail}</div>
+                        )}
                       </div>
-                      <div style={{ color: statusColor(b.status), fontWeight: 600, fontSize: 14 }}>
-                        {b.status === "won" ? `+${b.amount * 2}` : b.status === "lost" ? `-${b.amount}` : `🔒 ${b.amount}`} pts
-                      </div>
-                      <div className="history-badge"
-                        style={{ background: `${statusColor(b.status)}22`, color: statusColor(b.status) }}>
-                        {b.status.toUpperCase()}
+
+                      {/* Right: points + status */}
+                      <div style={{ textAlign: "right" }}>
+                        <div style={{
+                          color: statusColor(item.status), fontWeight: 600, fontSize: 14, marginBottom: 4,
+                        }}>
+                          {pointsDisplay(item)}
+                        </div>
+                        <div className="history-badge"
+                          style={{ background: `${statusColor(item.status)}22`, color: statusColor(item.status) }}>
+                          {statusLabel(item.status)}
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -468,7 +644,7 @@ export default function App() {
             </div>
           )}
 
-          {/* Multiplayer Screen */}
+          {/* ── Multiplayer Screen ── */}
           {screen === "multiplayer" && (
             <div className="screen">
               <Multiplayer username={username} points={points} setPoints={setPoints} />
