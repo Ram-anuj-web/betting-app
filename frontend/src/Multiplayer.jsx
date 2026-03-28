@@ -287,6 +287,71 @@ function IPLMatchPicker({ selectedMatch, onSelect }) {
   );
 }
 
+function HowItWorks() {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ marginBottom: 16, borderRadius: 10, border: "0.5px solid #d3d1c7", background: "#FAFAF7", overflow: "hidden" }}>
+      <button onClick={() => setOpen(o => !o)} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", background: "transparent", border: "none", cursor: "pointer" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 15 }}>💡</span>
+          <span style={{ fontSize: 13, fontWeight: 600, color: "#444441" }}>How Points Work</span>
+        </div>
+        <span style={{ fontSize: 13, color: "#888780", display: "inline-block", transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>▾</span>
+      </button>
+      {open && (
+        <div style={{ padding: "0 16px 16px", borderTop: "0.5px solid #e8e6dc" }}>
+          <div style={{ marginTop: 14, marginBottom: 10 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#3C3489", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>⚔️ 1v1 Challenges</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+              {[
+                { icon: "💰", text: "You wager points when creating a challenge — they're held in escrow until the match ends." },
+                { icon: "✅", text: "Opponent pays the same wager to accept. Both sides are locked in." },
+                { icon: "🏆", text: "Winner takes the full pot (your wager × 2). Profit = your wager amount." },
+                { icon: "🤝", text: "Draw? Both players get their wager fully refunded." },
+                { icon: "❌", text: "Opponent declines? Your escrowed points are returned immediately." },
+                { icon: "⏳", text: "Results auto-settle after the match ends via Cricket API — no manual action needed." },
+              ].map((item, i) => (
+                <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                  <span style={{ fontSize: 15, flexShrink: 0 }}>{item.icon}</span>
+                  <span style={{ fontSize: 13, color: "#444441", lineHeight: 1.5 }}>{item.text}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div style={{ height: 1, background: "#e8e6dc", margin: "12px 0" }} />
+          <div style={{ marginBottom: 4 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#085041", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>🏆 Contests</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+              {[
+                { icon: "🎟️", text: "Everyone pays an entry fee to join. The more players, the bigger the pot." },
+                { icon: "📊", text: "All entry fees pool together — e.g. 5 players × 50 pts = 250 pt pot." },
+                { icon: "🏅", text: "Players who picked the winning team split the entire pot equally." },
+                { icon: "🔒", text: "Once the match starts (status: Locked), you can no longer cancel or join." },
+                { icon: "⏳", text: "Contest results auto-settle after the match ends via Cricket API." },
+                { icon: "🗑️", text: "Creator can cancel before match starts — all entry fees are refunded." },
+              ].map((item, i) => (
+                <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                  <span style={{ fontSize: 15, flexShrink: 0 }}>{item.icon}</span>
+                  <span style={{ fontSize: 13, color: "#444441", lineHeight: 1.5 }}>{item.text}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div style={{ height: 1, background: "#e8e6dc", margin: "12px 0" }} />
+          <div style={{ background: "#EEEDFE", borderRadius: 8, padding: "10px 14px" }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#3C3489", marginBottom: 6 }}>📘 Quick Example</div>
+            <div style={{ fontSize: 12, color: "#3C3489", lineHeight: 1.6 }}>
+              You wager <strong>100 pts</strong> on RCB. Opponent wagers <strong>100 pts</strong> on MI.<br />
+              RCB wins → <strong>You receive 200 pts</strong> (+100 profit).<br />
+              MI wins → Opponent receives 200 pts, you lose your 100 pts.
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Multiplayer({ username, points, setPoints }) {
   const [view, setView] = useState("list");
 
@@ -569,6 +634,9 @@ export default function Multiplayer({ username, points, setPoints }) {
         <button style={S.tab(view === "contests")} onClick={() => { fetchMyContests(); fetchOpenContests(); setView("contests"); }}>🏆 Contests</button>
         <button style={S.tab(view === "createContest")} onClick={() => setView("createContest")}>+ New Contest</button>
       </div>
+
+      {/* ── How Points Work — shown on list and contests views ── */}
+      {(view === "list" || view === "contests") && <HowItWorks />}
 
       {/* ════════════════════════════════════════════════════
           CHALLENGE — LIST VIEW
