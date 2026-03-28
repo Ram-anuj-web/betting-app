@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 
-const API = "http://localhost:5000";
+const API = "https://betting-backend-xq1q.onrender.com";
 
 const SPORTS = [
   { id: "cricket",    name: "Cricket",    emoji: "🏏", teams: ["India", "Australia", "England", "Pakistan"] },

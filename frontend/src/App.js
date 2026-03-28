@@ -3,7 +3,7 @@ import Matches from "./Matches";
 import React, { useState, useEffect } from "react";
 import "./App.css";
 
-const API = "http://localhost:5000";
+const API = "https://betting-backend-xq1q.onrender.com";
 
 const SPORTS = [
   { id: "cricket", name: "Cricket", emoji: "🏏", teams: ["India", "Australia", "England", "Pakistan"] },

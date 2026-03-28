@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 
-const API = "http://localhost:5000";
+const API = "https://betting-backend-xq1q.onrender.com";
 
 const TEAM_COLORS = {
   RCB:  { bg: "#D85A30", light: "#FAECE7" },
@@ -35,7 +35,7 @@ export default function Matches({ onBetOnMatch }) {
       setMatches(list);
     } catch (err) {
       console.error("fetchMatches error:", err);
-      setError("Can't connect to server. Make sure backend is running on port 5000.");
+      setError("Can't connect to server.");
     }
     setLoading(false);
   }
