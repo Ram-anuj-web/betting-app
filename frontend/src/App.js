@@ -24,13 +24,16 @@ export default function App() {
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [betAmount, setBetAmount] = useState("");
   const [betPlaced, setBetPlaced] = useState(null);
-  const [myBets, setMyBets] = useState([]);           // solo bets only (for pending count)
-  const [allHistory, setAllHistory] = useState([]);   // unified history
+  const [myBets, setMyBets] = useState([]);
+  const [allHistory, setAllHistory] = useState([]);
   const [leaderboard, setLeaderboard] = useState([]);
   const [animatePoints, setAnimatePoints] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [prefilledMatch, setPrefilledMatch] = useState(null);
+
+  // ── NEW: track live match status for the prefilled match ──
+  const [matchStatus, setMatchStatus] = useState(null); // "upcoming" | "live" | "completed"
 
   // ─── Back button support ───────────────────────────────────────────────────
   useEffect(() => {
@@ -51,6 +54,30 @@ export default function App() {
       fetchAllHistory();
     }
   }, [username]);
+
+  // ── NEW: whenever a match is prefilled, fetch its live status from the backend ──
+  useEffect(() => {
+    if (!prefilledMatch) { setMatchStatus(null); return; }
+
+    async function checkMatchStatus() {
+      try {
+        const res = await fetch(`${API}/ipl-matches`);
+        const data = await res.json();
+        const list = Array.isArray(data) ? data : data.matches || [];
+        // prefilledMatch.matchId is like "ipl-1" — extract the number
+        const idNum = parseInt(prefilledMatch.matchId.replace("ipl-", ""));
+        const found = list.find(m => m.id === idNum);
+        if (found) setMatchStatus(found.status);
+      } catch (err) {
+        console.error("Failed to check match status", err);
+      }
+    }
+
+    checkMatchStatus();
+    // Poll every 60 seconds in case the match starts while user is on this screen
+    const interval = setInterval(checkMatchStatus, 60000);
+    return () => clearInterval(interval);
+  }, [prefilledMatch]);
 
   // ─── Solo bets (for pending count badge only) ──────────────────────────────
   const fetchMyBets = async () => {
@@ -80,7 +107,6 @@ export default function App() {
       const contests   = contestsData.contests   || [];
       const challenges = challengesData.challenges || [];
 
-      // Normalize bets
       const normalizedBets = bets.map(b => ({
         _id: b._id,
         type: "bet",
@@ -89,12 +115,11 @@ export default function App() {
         matchLabel: b.matchLabel,
         team: b.team,
         amount: b.amount,
-        status: b.status,                        // pending | won | lost
+        status: b.status,
         createdAt: b.createdAt,
         detail: null,
       }));
 
-      // Normalize contests
       const normalizedContests = contests.map(c => {
         const myEntry = c.participants?.find(p => p.username === username);
         const totalPot = c.entryFee * (c.participants?.length || 1);
@@ -128,7 +153,6 @@ export default function App() {
         };
       });
 
-      // Normalize challenges
       const normalizedChallenges = challenges
         .filter(c => c.status !== "cancelled")
         .map(c => {
@@ -157,7 +181,6 @@ export default function App() {
           };
         });
 
-      // Merge and sort newest first
       const merged = [
         ...normalizedBets,
         ...normalizedContests,
@@ -216,11 +239,22 @@ export default function App() {
     setSelectedTeam(null);
     setBetAmount("");
     setPrefilledMatch(matchInfo);
+    setMatchStatus(null); // will be fetched by the useEffect above
     setError("");
     setScreen("bet");
   };
 
   const placeBet = async () => {
+    // ── NEW: hard block if match is live or completed ──
+    if (matchStatus === "live") {
+      setError("Betting is closed — this match has already started!");
+      return;
+    }
+    if (matchStatus === "completed") {
+      setError("Betting is closed — this match has already ended!");
+      return;
+    }
+
     const amount = parseInt(betAmount);
     if (!amount || amount <= 0 || amount > points) return;
     if (!selectedTeam) { setError("Please pick a team!"); return; }
@@ -257,6 +291,7 @@ export default function App() {
           setSelectedTeam(null);
           setBetAmount("");
           setPrefilledMatch(null);
+          setMatchStatus(null);
         }, 3000);
       } else {
         setError(data.message || "Bet failed!");
@@ -279,6 +314,7 @@ export default function App() {
     setScreen("auth");
     setAuthMode("login");
     setPrefilledMatch(null);
+    setMatchStatus(null);
   };
 
   // ─── Status helpers ────────────────────────────────────────────────────────
@@ -288,7 +324,7 @@ export default function App() {
     if (status === "draw")      return "#888780";
     if (status === "active")    return "#7F77DD";
     if (status === "cancelled") return "#888780";
-    return "#BA7517"; // pending
+    return "#BA7517";
   };
 
   const statusEmoji = (status) => {
@@ -330,6 +366,9 @@ export default function App() {
 
   const maxPoints = Math.max(...leaderboardList().map(p => p.points), 1000);
   const pendingCount = myBets.filter(b => b.status === "pending").length;
+
+  // ── NEW: derived flag used in the bet screen ──
+  const isBettingLocked = matchStatus === "live" || matchStatus === "completed";
 
   return (
     <div className="app">
@@ -476,43 +515,98 @@ export default function App() {
                   }}>
                     <div>
                       <div style={{ fontSize: 11, color: "#1D9E75", fontWeight: 600, marginBottom: 4, textTransform: "uppercase" }}>Selected Match</div>
-                      <div style={{ fontWeight: 600, fontSize: 16 }}>🏏 {prefilledMatch.matchLabel}</div>
+                      <div style={{ fontWeight: 600, fontSize: 16 }}>
+                        🏏 {prefilledMatch.matchLabel}
+                        {/* ── NEW: live pill next to match name ── */}
+                        {matchStatus === "live" && (
+                          <span style={{
+                            marginLeft: 10, fontSize: 10, fontWeight: 700,
+                            padding: "2px 8px", borderRadius: 99,
+                            background: "#FCEBEB", color: "#A32D2D",
+                            border: "0.5px solid #F09595",
+                            animation: "blink 1s infinite",
+                          }}>
+                            ● LIVE
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <button onClick={() => { setPrefilledMatch(null); setSelectedSport(null); setSelectedTeam(null); }}
+                    <button onClick={() => { setPrefilledMatch(null); setSelectedSport(null); setSelectedTeam(null); setMatchStatus(null); }}
                       style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", fontSize: 20 }}>×</button>
                   </div>
 
-                  <div className="section">
-                    <div className="section-label">Pick Your Team</div>
-                    <div className="team-grid">
-                      {selectedSport?.teams.map(team => (
-                        <button key={team} className={`team-card ${selectedTeam === team ? "selected" : ""}`}
-                          onClick={() => setSelectedTeam(team)}>{team}</button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {selectedTeam && (
-                    <div className="section">
-                      <div className="section-label">Bet Amount (Available: {points} pts)</div>
-                      <div className="amount-row">
-                        {[50, 100, 250, 500].map(amt => (
-                          <button key={amt} className="amount-chip"
-                            onClick={() => setBetAmount(String(Math.min(amt, points)))}>{amt}</button>
-                        ))}
-                        <button className="amount-chip all-in" onClick={() => setBetAmount(String(points))}>ALL IN 🔥</button>
-                      </div>
-                      <div className="input-row">
-                        <input type="number" className="bet-input" placeholder="Enter amount..."
-                          value={betAmount} onChange={e => setBetAmount(e.target.value)} max={points} />
-                        <button className="btn-primary bet-btn" onClick={placeBet}
-                          disabled={loading || !betAmount || parseInt(betAmount) <= 0 || parseInt(betAmount) > points}>
-                          {loading ? "Placing..." : "Lock Bet 🔒"}
+                  {/* ── NEW: lock banner shown when match is live ── */}
+                  {isBettingLocked && (
+                    <div style={{
+                      background: "#FCEBEB", border: "0.5px solid #F09595",
+                      borderRadius: 12, padding: "16px 20px", marginBottom: 20,
+                      display: "flex", alignItems: "flex-start", gap: 12,
+                    }}>
+                      <div style={{
+                        width: 36, height: 36, borderRadius: "50%",
+                        background: "#F7C1C1", display: "flex", alignItems: "center",
+                        justifyContent: "center", flexShrink: 0, fontSize: 18,
+                      }}>🔒</div>
+                      <div>
+                        <div style={{ fontWeight: 600, color: "#A32D2D", marginBottom: 4, fontSize: 14 }}>
+                          Bets are locked for this match
+                        </div>
+                        <div style={{ fontSize: 13, color: "#993C1D", lineHeight: 1.5 }}>
+                          {matchStatus === "live"
+                            ? "This match has already started. Betting is only allowed before the match begins."
+                            : "This match has already ended."
+                          } Go back and pick an upcoming match to place your bet.
+                        </div>
+                        <button
+                          className="btn-primary"
+                          style={{ marginTop: 12, padding: "8px 16px", fontSize: 13 }}
+                          onClick={() => setScreen("matches")}
+                        >
+                          Browse Upcoming Matches →
                         </button>
                       </div>
-                      {error && <div className="error-msg">{error}</div>}
                     </div>
                   )}
+
+                  {/* ── Only show team picker and bet form if match is NOT locked ── */}
+                  {!isBettingLocked && (
+                    <>
+                      <div className="section">
+                        <div className="section-label">Pick Your Team</div>
+                        <div className="team-grid">
+                          {selectedSport?.teams.map(team => (
+                            <button key={team} className={`team-card ${selectedTeam === team ? "selected" : ""}`}
+                              onClick={() => setSelectedTeam(team)}>{team}</button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {selectedTeam && (
+                        <div className="section">
+                          <div className="section-label">Bet Amount (Available: {points} pts)</div>
+                          <div className="amount-row">
+                            {[50, 100, 250, 500].map(amt => (
+                              <button key={amt} className="amount-chip"
+                                onClick={() => setBetAmount(String(Math.min(amt, points)))}>{amt}</button>
+                            ))}
+                            <button className="amount-chip all-in" onClick={() => setBetAmount(String(points))}>ALL IN 🔥</button>
+                          </div>
+                          <div className="input-row">
+                            <input type="number" className="bet-input" placeholder="Enter amount..."
+                              value={betAmount} onChange={e => setBetAmount(e.target.value)} max={points} />
+                            <button className="btn-primary bet-btn" onClick={placeBet}
+                              disabled={loading || !betAmount || parseInt(betAmount) <= 0 || parseInt(betAmount) > points}>
+                              {loading ? "Placing..." : "Lock Bet 🔒"}
+                            </button>
+                          </div>
+                          {error && <div className="error-msg">{error}</div>}
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* show error even in locked state (e.g. if somehow placeBet was triggered) */}
+                  {isBettingLocked && error && <div className="error-msg">{error}</div>}
 
                   {betPlaced && (
                     <div className="bet-result win">
@@ -565,7 +659,6 @@ export default function App() {
               <button className="btn-primary" style={{ marginBottom: 20, padding: "0.5rem 1.5rem" }}
                 onClick={fetchAllHistory}>🔄 Refresh</button>
 
-              {/* Summary row */}
               {allHistory.length > 0 && (
                 <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
                   {[
@@ -596,10 +689,8 @@ export default function App() {
                       className={`history-row ${item.status === "won" ? "win" : item.status === "lost" ? "lose" : ""}`}
                       style={{ borderLeft: `3px solid ${statusColor(item.status)}` }}>
 
-                      {/* Left: emoji */}
                       <div className="history-sport">{statusEmoji(item.status)}</div>
 
-                      {/* Middle: details */}
                       <div style={{ flex: 1 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                           <span style={{ fontWeight: 600, fontSize: 14 }}>{item.matchLabel}</span>
@@ -625,7 +716,6 @@ export default function App() {
                         )}
                       </div>
 
-                      {/* Right: points + status */}
                       <div style={{ textAlign: "right" }}>
                         <div style={{
                           color: statusColor(item.status), fontWeight: 600, fontSize: 14, marginBottom: 4,

@@ -114,6 +114,20 @@ export default function Matches({ onBetOnMatch }) {
       background: "#7F77DD", color: "#fff", cursor: "pointer",
       fontSize: 14, fontWeight: 500,
     },
+    // ── NEW: live-locked button style ──────────────────────────────────────────
+    liveLockBtn: {
+      width: "100%", padding: "10px", borderRadius: 8,
+      border: "1px solid #F09595",
+      background: "#FCEBEB", color: "#A32D2D",
+      fontSize: 13, fontWeight: 500, cursor: "not-allowed",
+      display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+    },
+    // ── pulsing live dot inside the button ────────────────────────────────────
+    liveDotBtn: {
+      width: 8, height: 8, borderRadius: "50%",
+      background: "#E24B4A", display: "inline-block",
+      animation: "blink 1s infinite",
+    },
     disabledBtn: {
       width: "100%", padding: "10px", borderRadius: 8,
       border: "0.5px solid #d3d1c7", background: "transparent",
@@ -219,8 +233,14 @@ export default function Matches({ onBetOnMatch }) {
             📅 {formatDate(match.date, match.time)} &nbsp;·&nbsp; 📍 {match.venue}
           </div>
 
+          {/* ── UPDATED: three-state button ── */}
           {match.status === "completed" ? (
             <button style={s.disabledBtn} disabled>Match Completed</button>
+          ) : match.status === "live" ? (
+            <div style={s.liveLockBtn}>
+              <span style={s.liveDotBtn} />
+              Match is Live — Betting Closed
+            </div>
           ) : (
             <button
               style={s.betBtn}
