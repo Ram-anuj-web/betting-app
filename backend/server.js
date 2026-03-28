@@ -45,6 +45,10 @@ const challengeSchema = new mongoose.Schema({
   wager: Number,
   status: { type: String, enum: ["pending", "active", "settled", "cancelled"], default: "pending" },
   winner: { type: String, default: null },
+  // ── Privacy fields ──
+  visibility: { type: String, enum: ["public", "private"], default: "public" },
+  invitedPlayers: [{ type: String }],
+  password: { type: String, default: null },
   createdAt: { type: Date, default: Date.now },
 });
 
@@ -68,6 +72,9 @@ const contestSchema = new mongoose.Schema({
   status: { type: String, enum: ["open", "locked", "settled", "cancelled"], default: "open" },
   winner: { type: String, default: null },
   winningTeam: { type: String, default: null },
+  // ── Privacy fields ──
+  visibility: { type: String, enum: ["public", "private"], default: "public" },
+  password: { type: String, default: null },
   createdAt: { type: Date, default: Date.now },
 });
 
@@ -239,17 +246,12 @@ function getMatchesWithStatus() {
 
 app.get("/ipl-matches", (req, res) => res.json({ matches: getMatchesWithStatus() }));
 
-// ─── Ping (keep-alive for Render free tier) ───────────────────────────────────
 app.get("/ping", (req, res) => res.json({ ok: true, time: new Date().toISOString() }));
 
 // ─── Live Scores ──────────────────────────────────────────────────────────────
-// Returns today's IPL matches enriched with live score data from CricAPI.
-// Frontend can call GET /live-scores to display current match status & scores.
 app.get("/live-scores", async (req, res) => {
   try {
     const matchesWithStatus = getMatchesWithStatus();
-
-    // Only fetch from CricAPI if there's a live or recently completed match today
     const today = new Date().toISOString().slice(0, 10);
     const todayMatches = matchesWithStatus.filter(m => m.date === today);
 
@@ -257,14 +259,12 @@ app.get("/live-scores", async (req, res) => {
       return res.json({ matches: [], message: "No IPL matches today." });
     }
 
-    // Fetch current matches from CricAPI
     const apiRes = await fetch(
       `https://api.cricapi.com/v1/currentMatches?apikey=${CRICKET_API_KEY}&offset=0`
     );
     const apiData = await apiRes.json();
 
     if (!apiData.data) {
-      // CricAPI returned no data (quota exceeded or error) — fall back to schedule only
       return res.json({
         matches: todayMatches,
         message: "Live data unavailable — showing schedule only.",
@@ -272,16 +272,13 @@ app.get("/live-scores", async (req, res) => {
       });
     }
 
-    // Merge CricAPI live data into our IPL schedule
     const enriched = todayMatches.map(match => {
       const apiMatch = apiData.data.find(m =>
         m.teams &&
         m.teams.some(t => t.toUpperCase().includes(match.team1.toUpperCase())) &&
         m.teams.some(t => t.toUpperCase().includes(match.team2.toUpperCase()))
       );
-
       if (!apiMatch) return { ...match, liveData: null };
-
       return {
         ...match,
         liveData: {
@@ -289,7 +286,6 @@ app.get("/live-scores", async (req, res) => {
           matchEnded:   apiMatch.matchEnded   || false,
           matchWinner:  apiMatch.matchWinner  || null,
           status:       apiMatch.status       || null,
-          // Score arrays from CricAPI — each entry is { r, w, o, inning }
           score:        apiMatch.score        || [],
           teams:        apiMatch.teams        || [],
           dateTimeGMT:  apiMatch.dateTimeGMT  || null,
@@ -471,26 +467,50 @@ setInterval(() => {
 // ─── Challenge Routes ─────────────────────────────────────────────────────────
 app.post("/challenge/create", async (req, res) => {
   try {
-    const { challenger, opponent, sport, matchId, matchLabel, challengerTeam, wager, team1, team2 } = req.body;
-    if (!challenger || !opponent || !sport || !matchLabel || !challengerTeam || !wager)
+    const {
+      challenger, opponent, sport, matchId, matchLabel,
+      challengerTeam, wager, team1, team2,
+      visibility, invitedPlayers, password,
+    } = req.body;
+
+    const isPrivate = visibility === "private";
+
+    if (!challenger || !sport || !matchLabel || !challengerTeam || !wager)
       return res.status(400).json({ message: "Missing required fields" });
-    if (challenger === opponent)
-      return res.status(400).json({ message: "You can't challenge yourself!" });
+    if (isPrivate) {
+      if (!invitedPlayers || invitedPlayers.length === 0)
+        return res.status(400).json({ message: "Private challenge needs at least one invited player" });
+      if (!password)
+        return res.status(400).json({ message: "Private challenge needs a password" });
+    } else {
+      if (!opponent)
+        return res.status(400).json({ message: "Public challenge needs an opponent" });
+      if (challenger === opponent)
+        return res.status(400).json({ message: "You can't challenge yourself!" });
+      const opponentUser = await User.findOne({ name: opponent });
+      if (!opponentUser) return res.status(404).json({ message: "Opponent not found" });
+    }
+
     const challengerUser = await User.findOne({ name: challenger });
-    const opponentUser   = await User.findOne({ name: opponent });
     if (!challengerUser) return res.status(404).json({ message: "Challenger not found" });
-    if (!opponentUser)   return res.status(404).json({ message: "Opponent not found" });
     if (challengerUser.points < wager)
       return res.status(400).json({ message: "Not enough points to wager" });
+
     challengerUser.points -= wager;
     await challengerUser.save();
+
     const challenge = new Challenge({
-      challenger, opponent, sport,
+      challenger,
+      opponent: isPrivate ? null : opponent,
+      sport,
       matchId: matchId || "manual",
       matchLabel, challengerTeam, wager,
       team1: team1 || null,
       team2: team2 || null,
       status: "pending",
+      visibility: visibility || "public",
+      invitedPlayers: isPrivate ? invitedPlayers : [],
+      password: isPrivate ? password : null,
     });
     await challenge.save();
     res.json({ message: "Challenge sent!", challenge, challengerPoints: challengerUser.points });
@@ -569,7 +589,11 @@ app.post("/challenge/settle", async (req, res) => {
 app.get("/challenges/:username", async (req, res) => {
   try {
     const challenges = await Challenge.find({
-      $or: [{ challenger: req.params.username }, { opponent: req.params.username }],
+      $or: [
+        { challenger: req.params.username },
+        { opponent: req.params.username },
+        { invitedPlayers: req.params.username },
+      ],
     }).sort({ createdAt: -1 }).limit(50);
     res.json({ challenges });
   } catch (err) {
@@ -580,9 +604,17 @@ app.get("/challenges/:username", async (req, res) => {
 // ─── Contest Routes ───────────────────────────────────────────────────────────
 app.post("/contest/create", async (req, res) => {
   try {
-    const { createdBy, name, sport, matchId, matchLabel, team1, team2, entryFee, maxPlayers, myTeam } = req.body;
+    const {
+      createdBy, name, sport, matchId, matchLabel,
+      team1, team2, entryFee, maxPlayers, myTeam,
+      visibility, password,
+    } = req.body;
+
     if (!createdBy || !name || !sport || !matchLabel || !entryFee || !myTeam)
       return res.status(400).json({ message: "Missing required fields" });
+
+    if (visibility === "private" && !password)
+      return res.status(400).json({ message: "Private contest requires a password" });
 
     const max = parseInt(maxPlayers) || 10;
     if (max < 2 || max > 12)
@@ -604,6 +636,8 @@ app.post("/contest/create", async (req, res) => {
       entryFee, maxPlayers: max,
       participants: [{ username: createdBy, team: myTeam }],
       status: "open",
+      visibility: visibility || "public",
+      password: visibility === "private" ? password : null,
     });
     await contest.save();
     res.json({ message: "Contest created!", contest, creatorPoints: user.points });
@@ -613,9 +647,15 @@ app.post("/contest/create", async (req, res) => {
   }
 });
 
+// ── UPDATED: returns ALL open/locked contests (public + private) ──
 app.get("/contests", async (req, res) => {
   try {
-    const contests = await Contest.find({ status: "open" }).sort({ createdAt: -1 }).limit(50);
+    const contests = await Contest
+      .find({ status: { $in: ["open", "locked"] } })
+      .sort({ createdAt: -1 })
+      .limit(50)
+      // Strip password from response so clients never see it
+      .select("-password");
     res.json({ contests });
   } catch (err) {
     res.status(500).json({ message: "Server error" });
@@ -629,19 +669,21 @@ app.get("/contests/:username", async (req, res) => {
         { createdBy: req.params.username },
         { "participants.username": req.params.username },
       ],
-    }).sort({ createdAt: -1 }).limit(50);
+    }).sort({ createdAt: -1 }).limit(50).select("-password");
     res.json({ contests });
   } catch (err) {
     res.status(500).json({ message: "Server error" });
   }
 });
 
+// ── UPDATED: password check for private contests ──
 app.post("/contest/join", async (req, res) => {
   try {
-    const { contestId, username, team } = req.body;
+    const { contestId, username, team, password } = req.body;
     if (!contestId || !username || !team)
       return res.status(400).json({ message: "Missing fields" });
 
+    // Fetch WITH password for verification
     const contest = await Contest.findById(contestId);
     if (!contest)                       return res.status(404).json({ message: "Contest not found" });
     if (contest.status !== "open")      return res.status(400).json({ message: "Contest is not open" });
@@ -649,6 +691,12 @@ app.post("/contest/join", async (req, res) => {
       return res.status(400).json({ message: "Contest is full!" });
     if (contest.participants.find(p => p.username === username))
       return res.status(400).json({ message: "You already joined this contest" });
+
+    // ── Password check for private contests ──
+    if (contest.visibility === "private") {
+      if (!password) return res.status(403).json({ message: "This contest requires a password" });
+      if (password !== contest.password) return res.status(403).json({ message: "Wrong password — please try again" });
+    }
 
     const user = await User.findOne({ name: username });
     if (!user) return res.status(404).json({ message: "User not found" });
