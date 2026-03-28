@@ -82,7 +82,6 @@ const IPL_MATCHES = [
   { id: "ipl70", team1: "KKR", team2: "DC",   date: "2026-05-24", venue: "Kolkata" },
 ];
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 function statusBadge(status) {
   const map = {
     pending:   { label: "Pending",   color: "#BA7517", bg: "#FAEEDA" },
@@ -114,7 +113,21 @@ function getChallengeTeams(challenge) {
   return sport?.teams || [];
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
+// ─── Points Info Box ──────────────────────────────────────────────────────────
+function PointsInfoBox({ icon, label, value, color }) {
+  return (
+    <div style={{
+      flex: 1, textAlign: "center", padding: "10px 8px",
+      background: color ? `${color}11` : "#F8F7F3",
+      borderRadius: 8, border: `1px solid ${color ? `${color}33` : "#e8e6dc"}`,
+    }}>
+      <div style={{ fontSize: 18, marginBottom: 2 }}>{icon}</div>
+      <div style={{ fontSize: 18, fontWeight: 700, color: color || "#444441" }}>{value}</div>
+      <div style={{ fontSize: 10, color: "#888780", marginTop: 1 }}>{label}</div>
+    </div>
+  );
+}
+
 const S = {
   container: { padding: "24px 0", maxWidth: 700, margin: "0 auto" },
   header: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 },
@@ -177,8 +190,6 @@ const S = {
     height: "100%", borderRadius: 99, width: `${pct}%`,
     background: pct >= 100 ? "#E24B4A" : "#1D9E75", transition: "width 0.3s",
   }),
-
-  // ── NEW: VS matchup display for incoming challenges ──
   vsMatchup: {
     display: "flex", alignItems: "stretch", gap: 0,
     borderRadius: 10, overflow: "hidden", marginBottom: 14,
@@ -210,9 +221,11 @@ const S = {
     opacity: disabled ? 0.6 : 1,
     transition: "all 0.15s",
   }),
+  pointsRow: {
+    display: "flex", gap: 8, marginBottom: 14,
+  },
 };
 
-// ─── IPLMatchPicker ───────────────────────────────────────────────────────────
 function IPLMatchPicker({ selectedMatch, onSelect }) {
   const scrollRef = useRef(null);
   const today = new Date().toISOString().slice(0, 10);
@@ -258,11 +271,9 @@ function IPLMatchPicker({ selectedMatch, onSelect }) {
   );
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
 export default function Multiplayer({ username, points, setPoints }) {
   const [view, setView] = useState("list");
 
-  // ── Challenge state ──
   const [challenges, setChallenges]   = useState([]);
   const [opponentName, setOpponentName] = useState("");
   const [selectedSport, setSelectedSport] = useState(null);
@@ -275,7 +286,6 @@ export default function Multiplayer({ username, points, setPoints }) {
   const [settlingId, setSettlingId]   = useState(null);
   const [winningTeam, setWinningTeam] = useState("");
 
-  // ── Contest state ──
   const [contests, setContests]               = useState([]);
   const [openContests, setOpenContests]       = useState([]);
   const [contestName, setContestName]         = useState("");
@@ -290,13 +300,11 @@ export default function Multiplayer({ username, points, setPoints }) {
   const [settlingContest, setSettlingContest] = useState(null);
   const [contestWinTeam, setContestWinTeam]   = useState("");
 
-  // ── Shared ──
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState("");
   const [success, setSuccess] = useState("");
   const [serverOnline, setServerOnline] = useState(true);
 
-  // ─── Fetch ────────────────────────────────────────────────────────────────
   const fetchChallenges = useCallback(async () => {
     try {
       const res = await fetch(`${API}/challenges/${username}`);
@@ -352,7 +360,6 @@ export default function Multiplayer({ username, points, setPoints }) {
     return sport?.teams || [];
   }
 
-  // ─── Challenge handlers ───────────────────────────────────────────────────
   async function handleCreate() {
     if (!opponentName.trim()) return flash("error", "Enter an opponent username");
     if (!selectedSport)       return flash("error", "Pick a sport");
@@ -451,7 +458,6 @@ export default function Multiplayer({ username, points, setPoints }) {
     setLoading(false);
   }
 
-  // ─── Contest handlers ─────────────────────────────────────────────────────
   async function handleCreateContest() {
     if (!contestName.trim()) return flash("error", "Enter a contest name");
     if (!cSport)             return flash("error", "Pick a sport");
@@ -550,13 +556,11 @@ export default function Multiplayer({ username, points, setPoints }) {
     setLoading(false);
   }
 
-  // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <div style={S.container}>
       <div style={S.header}>
         <div style={S.title}>⚔️ Multiplayer</div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          {/* Server status indicator */}
           <span style={{
             fontSize: 11, padding: "3px 10px", borderRadius: 99, fontWeight: 600,
             background: serverOnline ? "#E1F5EE" : "#FCEBEB",
@@ -619,10 +623,16 @@ export default function Multiplayer({ username, points, setPoints }) {
                   </div>
                   <div style={{ textAlign: "right" }}>
                     {statusBadge(c.status)}
-                    <div style={{ fontSize: 13, color: "#888780", marginTop: 4 }}>💰 {c.wager} pts each</div>
                   </div>
                 </div>
-                {/* VS matchup — always show both team slots */}
+
+                {/* ✅ Points summary row */}
+                <div style={S.pointsRow}>
+                  <PointsInfoBox icon="💰" label="Your Wager" value={`${c.wager} pts`} color="#BA7517" />
+                  <PointsInfoBox icon="🏆" label="Win Prize" value={`${c.wager * 2} pts`} color="#1D9E75" />
+                  <PointsInfoBox icon="📈" label="Profit" value={`+${c.wager} pts`} color="#7F77DD" />
+                </div>
+
                 <div style={S.vsBox}>
                   <div style={S.teamChip(true)}>
                     {myTeamName || <span style={{ opacity: 0.5 }}>You</span>}
@@ -635,12 +645,21 @@ export default function Multiplayer({ username, points, setPoints }) {
                       </div>
                   }
                 </div>
+
                 {c.status === "settled" && (
-                  <div style={{ fontSize: 14, fontWeight: 500, color: c.winner === username ? "#0F6E56" : c.winner === "draw" ? "#888780" : "#993C1D", marginTop: 6 }}>
-                    {c.winner === username ? "🏆 You won!" : c.winner === "draw" ? "🤝 Draw" : `😢 ${c.winner} won`}
-                    {" "}· Pot: {c.wager * 2} pts
+                  <div style={{
+                    fontSize: 14, fontWeight: 600, marginTop: 6, padding: "10px 14px", borderRadius: 8,
+                    background: c.winner === username ? "#E1F5EE" : c.winner === "draw" ? "#F1EFE8" : "#FCEBEB",
+                    color: c.winner === username ? "#0F6E56" : c.winner === "draw" ? "#888780" : "#993C1D",
+                  }}>
+                    {c.winner === username
+                      ? `🏆 You won ${c.wager * 2} pts! (+${c.wager} profit)`
+                      : c.winner === "draw"
+                      ? `🤝 Draw — ${c.wager} pts refunded`
+                      : `😢 ${c.winner} won · You lost ${c.wager} pts`}
                   </div>
                 )}
+
                 <div style={{ ...S.row, marginTop: 12 }}>
                   {c.status === "active" && isChallenger && (
                     settlingId === c._id ? (
@@ -727,6 +746,15 @@ export default function Multiplayer({ username, points, setPoints }) {
           <input style={S.input} type="number" placeholder="Or enter custom amount..."
             value={wager} onChange={e => setWager(e.target.value)} max={points} />
 
+          {/* ✅ Live potential win preview */}
+          {parseInt(wager) > 0 && (
+            <div style={S.pointsRow}>
+              <PointsInfoBox icon="💰" label="You Wager" value={`${wager} pts`} color="#BA7517" />
+              <PointsInfoBox icon="🏆" label="If You Win" value={`${parseInt(wager) * 2} pts`} color="#1D9E75" />
+              <PointsInfoBox icon="📈" label="Profit" value={`+${wager} pts`} color="#7F77DD" />
+            </div>
+          )}
+
           <div style={S.row}>
             <button style={S.btn()} onClick={handleCreate} disabled={loading}>
               {loading ? "Sending..." : "Send Challenge ⚡"}
@@ -737,7 +765,7 @@ export default function Multiplayer({ username, points, setPoints }) {
       )}
 
       {/* ════════════════════════════════════════════════════
-          CHALLENGE — INCOMING VIEW  (REDESIGNED)
+          CHALLENGE — INCOMING VIEW
       ════════════════════════════════════════════════════ */}
       {view === "incoming" && (
         <div>
@@ -748,15 +776,12 @@ export default function Multiplayer({ username, points, setPoints }) {
           )}
           {pendingIncoming.map(c => {
             const sport      = SPORTS.find(s => s.id === c.sport);
-            const allTeams   = getChallengeTeams(c);          // [team1, team2]
-            // The team challenger already picked
+            const allTeams   = getChallengeTeams(c);
             const takenTeam  = c.challengerTeam;
-            // The remaining team(s) the opponent can pick
             const myOptions  = allTeams.filter(t => t !== takenTeam);
 
             return (
               <div key={c._id} style={S.card}>
-                {/* Match info header */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
                   <div>
                     <div style={{ fontSize: 12, color: "#888780", marginBottom: 2 }}>{sport?.emoji} {c.matchLabel}</div>
@@ -767,63 +792,44 @@ export default function Multiplayer({ username, points, setPoints }) {
                   </div>
                   <div style={{ textAlign: "right" }}>
                     {statusBadge(c.status)}
-                    <div style={{ fontSize: 13, fontWeight: 600, color: "#444441", marginTop: 4 }}>💰 {c.wager} pts</div>
                   </div>
                 </div>
 
-                {/* ── VS matchup display showing BOTH teams ── */}
+                {/* ✅ Points summary for incoming challenge */}
+                <div style={S.pointsRow}>
+                  <PointsInfoBox icon="💰" label="Entry Cost" value={`${c.wager} pts`} color="#BA7517" />
+                  <PointsInfoBox icon="🏆" label="Prize Pool" value={`${c.wager * 2} pts`} color="#1D9E75" />
+                  <PointsInfoBox icon="📈" label="Profit" value={`+${c.wager} pts`} color="#7F77DD" />
+                </div>
+
                 <div style={S.vsMatchup}>
-                  {/* Challenger's team (already picked — highlighted) */}
                   <div style={S.vsTeamBox(true)}>
                     <div style={S.vsTeamName(true)}>{allTeams[0] || "—"}</div>
                     <div style={S.vsTeamSub}>{c.challenger} picked this</div>
                   </div>
                   <div style={S.vsDivider}>VS</div>
-                  {/* Opponent side — your pick */}
                   <div style={S.vsTeamBox(false)}>
                     <div style={S.vsTeamName(false)}>{allTeams[1] || "—"}</div>
                     <div style={S.vsTeamSub}>Your side</div>
                   </div>
                 </div>
 
-                {/* Wager info */}
-                <div style={{
-                  fontSize: 12, color: "#444441", padding: "8px 12px",
-                  background: "#F8F7F3", borderRadius: 8, marginBottom: 12,
-                  display: "flex", justifyContent: "space-between"
-                }}>
-                  <span>Total pot if accepted</span>
-                  <span style={{ fontWeight: 600, color: "#1D9E75" }}>💰 {c.wager * 2} pts</span>
-                </div>
-
-                {/* Accept / Decline */}
                 {acceptingId === c._id ? (
                   <div>
                     <div style={S.label}>Confirm your team pick</div>
                     <div style={S.pillRow}>
                       {myOptions.map(t => (
-                        <button
-                          key={t}
-                          style={S.selectablePill(acceptTeam === t, false)}
-                          onClick={() => setAcceptTeam(t)}
-                        >
-                          {t}
-                          {acceptTeam === t && " ✓"}
+                        <button key={t} style={S.selectablePill(acceptTeam === t, false)} onClick={() => setAcceptTeam(t)}>
+                          {t}{acceptTeam === t && " ✓"}
                         </button>
                       ))}
-                      {/* Also show the taken team as disabled so user sees both */}
-                      <button
-                        key={takenTeam}
-                        style={S.selectablePill(false, true)}
-                        disabled
-                        title={`${c.challenger} already picked this team`}
-                      >
+                      <button key={takenTeam} style={S.selectablePill(false, true)} disabled title={`${c.challenger} already picked this team`}>
                         {takenTeam} (taken)
                       </button>
                     </div>
                     <div style={S.row}>
                       <button style={S.btn("#1D9E75")} onClick={() => handleAccept(c._id)} disabled={loading}>
-                        {loading ? "Accepting..." : "Confirm & Accept ✓"}
+                        {loading ? "Accepting..." : `Accept & Pay ${c.wager} pts ✓`}
                       </button>
                       <button style={S.btnGhost} onClick={() => { setAcceptingId(null); setAcceptTeam(null); }}>Back</button>
                     </div>
@@ -850,9 +856,7 @@ export default function Multiplayer({ username, points, setPoints }) {
           <div style={{ fontSize: 13, fontWeight: 600, color: "#444441", marginBottom: 10 }}>My Contests</div>
           {contests.length === 0 && (
             <div style={{ ...S.cardDark, textAlign: "center", color: "#888780", fontSize: 14, padding: 24, marginBottom: 16 }}>
-              {serverOnline
-                ? "You haven't joined or created any contests yet."
-                : "⚠️ Can't load contests — server offline. Run: node server.js"}
+              {serverOnline ? "You haven't joined or created any contests yet." : "⚠️ Can't load contests — server offline."}
             </div>
           )}
           {contests.map(c => {
@@ -860,6 +864,8 @@ export default function Multiplayer({ username, points, setPoints }) {
             const myEntry    = c.participants.find(p => p.username === username);
             const totalPot   = c.entryFee * c.participants.length;
             const pct        = Math.round((c.participants.length / c.maxPlayers) * 100);
+            // Estimate prize if you're the only winner
+            const maxPrize   = totalPot;
             return (
               <div key={c._id} style={S.card}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
@@ -869,11 +875,18 @@ export default function Multiplayer({ username, points, setPoints }) {
                   </div>
                   <div style={{ textAlign: "right" }}>
                     {statusBadge(c.status)}
-                    <div style={{ fontSize: 12, color: "#888780", marginTop: 4 }}>Entry: {c.entryFee} pts</div>
                   </div>
                 </div>
+
+                {/* ✅ Points summary for contest */}
+                <div style={S.pointsRow}>
+                  <PointsInfoBox icon="🎟️" label="Entry Fee" value={`${c.entryFee} pts`} color="#BA7517" />
+                  <PointsInfoBox icon="💰" label="Total Pot" value={`${totalPot} pts`} color="#7F77DD" />
+                  <PointsInfoBox icon="🏆" label="Max Prize" value={`${maxPrize} pts`} color="#1D9E75" />
+                </div>
+
                 <div style={{ fontSize: 12, color: "#444441", marginBottom: 4 }}>
-                  👥 {c.participants.length}/{c.maxPlayers} players · 💰 Pot: {totalPot} pts
+                  👥 {c.participants.length}/{c.maxPlayers} players
                 </div>
                 <div style={S.progressBar(pct)}><div style={S.progressFill(pct)} /></div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
@@ -894,10 +907,13 @@ export default function Multiplayer({ username, points, setPoints }) {
                   </div>
                 )}
                 {c.status === "settled" && (
-                  <div style={{ fontSize: 13, fontWeight: 500, marginTop: 8,
-                    color: c.winner?.includes(username) ? "#0F6E56" : "#993C1D" }}>
+                  <div style={{
+                    fontSize: 13, fontWeight: 600, marginTop: 8, padding: "10px 14px", borderRadius: 8,
+                    background: c.winner?.includes(username) ? "#E1F5EE" : "#FCEBEB",
+                    color: c.winner?.includes(username) ? "#0F6E56" : "#993C1D",
+                  }}>
                     {c.winner?.includes(username)
-                      ? `🏆 You won! Team: ${c.winningTeam}`
+                      ? `🏆 You won! Team ${c.winningTeam} won · Prize: ${Math.floor(totalPot / (c.winner.split(", ").length))} pts`
                       : `Result: ${c.winningTeam} won · Winner(s): ${c.winner}`}
                   </div>
                 )}
@@ -947,6 +963,7 @@ export default function Multiplayer({ username, points, setPoints }) {
               const totalPot = c.entryFee * c.participants.length;
               const pct = Math.round((c.participants.length / c.maxPlayers) * 100);
               const matchTeams = c.team1 && c.team2 ? [c.team1, c.team2] : [];
+              const maxPrize = c.entryFee * c.maxPlayers; // best case: only winner
               return (
                 <div key={c._id} style={S.card}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
@@ -957,13 +974,21 @@ export default function Multiplayer({ username, points, setPoints }) {
                     </div>
                     <div style={{ textAlign: "right" }}>
                       {statusBadge(c.status)}
-                      <div style={{ fontSize: 12, color: "#888780", marginTop: 4 }}>Entry: {c.entryFee} pts</div>
                     </div>
                   </div>
+
+                  {/* ✅ Points summary for open contests */}
+                  <div style={S.pointsRow}>
+                    <PointsInfoBox icon="🎟️" label="Entry Fee" value={`${c.entryFee} pts`} color="#BA7517" />
+                    <PointsInfoBox icon="💰" label="Pot So Far" value={`${totalPot} pts`} color="#7F77DD" />
+                    <PointsInfoBox icon="🏆" label="Max Prize" value={`${maxPrize} pts`} color="#1D9E75" />
+                  </div>
+
                   <div style={{ fontSize: 12, color: "#444441", marginBottom: 4 }}>
-                    👥 {c.participants.length}/{c.maxPlayers} players · 💰 Pot so far: {totalPot} pts
+                    👥 {c.participants.length}/{c.maxPlayers} players
                   </div>
                   <div style={S.progressBar(pct)}><div style={S.progressFill(pct)} /></div>
+
                   {joiningContest === c._id ? (
                     <div style={{ marginTop: 12 }}>
                       <div style={S.label}>Pick your team</div>
@@ -974,14 +999,14 @@ export default function Multiplayer({ username, points, setPoints }) {
                       </div>
                       <div style={S.row}>
                         <button style={S.btn("#1D9E75")} onClick={() => handleJoinContest(c._id)} disabled={loading}>
-                          {loading ? "Joining..." : "Confirm Join ✓"}
+                          {loading ? "Joining..." : `Confirm — Pay ${c.entryFee} pts ✓`}
                         </button>
                         <button style={S.btnGhost} onClick={() => { setJoiningContest(null); setJoinTeam(null); }}>Cancel</button>
                       </div>
                     </div>
                   ) : (
                     <button style={{ ...S.btn(), marginTop: 12 }} onClick={() => { setJoiningContest(c._id); setJoinTeam(null); }}>
-                      Join Contest — {c.entryFee} pts
+                      Join Contest — {c.entryFee} pts entry
                     </button>
                   )}
                 </div>
@@ -1056,10 +1081,12 @@ export default function Multiplayer({ username, points, setPoints }) {
           <input style={S.input} type="number" placeholder="Custom (2–12)"
             value={cMaxPlayers} min={2} max={12} onChange={e => setCMaxPlayers(e.target.value)} />
 
-          {cEntryFee && cMaxPlayers && (
-            <div style={{ fontSize: 13, color: "#1D9E75", marginBottom: 14, padding: "8px 12px", background: "#E1F5EE", borderRadius: 8 }}>
-              💰 Max pot: {(parseInt(cEntryFee) || 0) * (parseInt(cMaxPlayers) || 0)} pts
-              ({parseInt(cMaxPlayers) || 0} players × {parseInt(cEntryFee) || 0} pts)
+          {/* ✅ Live pot preview */}
+          {cEntryFee && cMaxPlayers && parseInt(cEntryFee) > 0 && (
+            <div style={S.pointsRow}>
+              <PointsInfoBox icon="🎟️" label="Your Entry" value={`${parseInt(cEntryFee)} pts`} color="#BA7517" />
+              <PointsInfoBox icon="💰" label="Max Pot" value={`${(parseInt(cEntryFee) || 0) * (parseInt(cMaxPlayers) || 0)} pts`} color="#7F77DD" />
+              <PointsInfoBox icon="🏆" label="Max Prize" value={`${(parseInt(cEntryFee) || 0) * (parseInt(cMaxPlayers) || 0)} pts`} color="#1D9E75" />
             </div>
           )}
 
