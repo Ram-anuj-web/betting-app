@@ -280,7 +280,6 @@ function PrivateInfoBox({ invitedPlayers }) {
   );
 }
 
-// ── UPDATED: PasswordEntryModal — now has team picker built in after password confirmed ──
 function PasswordEntryModal({ contest, matchTeams, onConfirm, onCancel }) {
   const [pw, setPw] = useState("");
   const [err, setErr] = useState("");
@@ -289,8 +288,6 @@ function PasswordEntryModal({ contest, matchTeams, onConfirm, onCancel }) {
 
   function handleVerify() {
     if (!pw.trim()) { setErr("Password required"); return; }
-    // We pass the password up; the parent verifies it server-side.
-    // Optimistically show team picker — server will reject if wrong.
     setPwVerified(true);
     setErr("");
   }
@@ -617,7 +614,6 @@ export default function Multiplayer({ username, points, setPoints }) {
   const [cPassword, setCPassword]             = useState("");
   const [joiningContest, setJoiningContest]   = useState(null);
   const [joinTeam, setJoinTeam]               = useState(null);
-  // ── UPDATED: passwordModal now stores the full contest object ──
   const [passwordModal, setPasswordModal]     = useState(null);
 
   const [loading, setLoading] = useState(false);
@@ -641,19 +637,12 @@ export default function Multiplayer({ username, points, setPoints }) {
     } catch {}
   }, [username]);
 
-  // ── UPDATED: fetch ALL contests (public + private) — backend must return both ──
+  // ── FIX: use /contests directly — returns ALL open/locked contests (public + private) ──
   const fetchOpenContests = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/contests/all`);
+      const res = await fetch(`${API}/contests`);
       const data = await res.json();
-      if (res.ok) {
-        setOpenContests(data.contests);
-      } else {
-        // Fallback to old endpoint if /contests/all doesn't exist yet
-        const res2 = await fetch(`${API}/contests`);
-        const data2 = await res2.json();
-        if (res2.ok) setOpenContests(data2.contests);
-      }
+      if (res.ok) setOpenContests(data.contests);
     } catch {}
   }, []);
 
@@ -834,7 +823,6 @@ export default function Multiplayer({ username, points, setPoints }) {
     setLoading(false);
   }
 
-  // ── UPDATED: now accepts team as a parameter (passed from both modal and inline picker) ──
   async function handleJoinContest(contestId, password, team) {
     const teamToUse = team || joinTeam;
     if (!teamToUse) return flash("error", "Pick a team first");
@@ -858,26 +846,17 @@ export default function Multiplayer({ username, points, setPoints }) {
         fetchMyContests(); fetchOpenContests();
       } else {
         flash("error", data.message || "Failed — check your password and try again");
-        // Keep modal open if password was wrong so user can retry
-        if (password) {
-          // re-show modal — don't clear passwordModal
-        } else {
-          setPasswordModal(null);
-        }
       }
     } catch { flash("error", "Can't connect to server"); }
     setLoading(false);
   }
 
-  // ── UPDATED: ALL contests show in the list; private ones open the password modal ──
   function initiateJoin(contest) {
     setJoinTeam(null);
     if (contest.visibility === "private") {
-      // Show password modal — team picker is now inside the modal
       setPasswordModal(contest);
       setJoiningContest(null);
     } else {
-      // Public: show inline team picker
       setJoiningContest(contest._id);
     }
   }
@@ -897,7 +876,6 @@ export default function Multiplayer({ username, points, setPoints }) {
     setLoading(false);
   }
 
-  // Helper: get teams for a contest card
   function getContestTeams(c) {
     if (c.team1 && c.team2) return [c.team1, c.team2];
     return SPORTS.find(s => s.id === c.sport)?.teams || [];
@@ -905,7 +883,6 @@ export default function Multiplayer({ username, points, setPoints }) {
 
   return (
     <div style={S.container}>
-      {/* ── Password + team picker modal for private contests ── */}
       {passwordModal && (
         <PasswordEntryModal
           contest={passwordModal}
@@ -956,9 +933,7 @@ export default function Multiplayer({ username, points, setPoints }) {
 
       {(view === "list" || view === "contests") && <HowItWorks />}
 
-      {/* ════════════════════════════════════════════════════
-          CHALLENGE — LIST VIEW
-      ════════════════════════════════════════════════════ */}
+      {/* ── My Challenges ── */}
       {view === "list" && (
         <div>
           {myChallenges.length === 0 && (
@@ -1036,9 +1011,7 @@ export default function Multiplayer({ username, points, setPoints }) {
         </div>
       )}
 
-      {/* ════════════════════════════════════════════════════
-          CHALLENGE — CREATE VIEW
-      ════════════════════════════════════════════════════ */}
+      {/* ── Create Challenge ── */}
       {view === "create" && (
         <div style={S.card}>
           <div style={S.label}>Challenge type</div>
@@ -1135,9 +1108,7 @@ export default function Multiplayer({ username, points, setPoints }) {
         </div>
       )}
 
-      {/* ════════════════════════════════════════════════════
-          CHALLENGE — INCOMING VIEW
-      ════════════════════════════════════════════════════ */}
+      {/* ── Incoming Challenges ── */}
       {view === "incoming" && (
         <div>
           {pendingIncoming.length === 0 && (
@@ -1219,10 +1190,7 @@ export default function Multiplayer({ username, points, setPoints }) {
         </div>
       )}
 
-      {/* ════════════════════════════════════════════════════
-          CONTESTS — LIST / BROWSE VIEW
-          ALL contests shown; private ones need password to join
-      ════════════════════════════════════════════════════ */}
+      {/* ── Contests List ── */}
       {view === "contests" && (
         <div>
           <div style={{ fontSize: 13, fontWeight: 600, color: "#444441", marginBottom: 10 }}>My Contests</div>
@@ -1321,7 +1289,6 @@ export default function Multiplayer({ username, points, setPoints }) {
             );
           })}
 
-          {/* ── UPDATED: "All Contests" section — shows ALL contests including private ── */}
           <div style={{ fontSize: 13, fontWeight: 600, color: "#444441", margin: "20px 0 6px" }}>All Contests — Join Now</div>
           <div style={{ fontSize: 12, color: "#888780", marginBottom: 12 }}>
             🌐 Public contests are open to join · 🔒 Private contests require a password
@@ -1342,7 +1309,6 @@ export default function Multiplayer({ username, points, setPoints }) {
               return (
                 <div key={c._id} style={{
                   ...S.card,
-                  // Subtle visual distinction for private contests
                   borderColor: isPrivate ? "#AFA9EC" : "#d3d1c7",
                 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
@@ -1371,7 +1337,6 @@ export default function Multiplayer({ username, points, setPoints }) {
                   </div>
                   <div style={S.progressBar(pct)}><div style={S.progressFill(pct)} /></div>
 
-                  {/* Public contests: inline team picker; Private: handled by modal */}
                   {joiningContest === c._id ? (
                     <div style={{ marginTop: 12 }}>
                       <div style={S.label}>Pick your team</div>
@@ -1401,9 +1366,7 @@ export default function Multiplayer({ username, points, setPoints }) {
         </div>
       )}
 
-      {/* ════════════════════════════════════════════════════
-          CONTESTS — CREATE VIEW
-      ════════════════════════════════════════════════════ */}
+      {/* ── Create Contest ── */}
       {view === "createContest" && (
         <div style={S.card}>
           <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 16 }}>🏆 Create a Contest</div>
