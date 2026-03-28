@@ -127,7 +127,6 @@ function PointsInfoBox({ icon, label, value, color }) {
   );
 }
 
-// ── NEW: RecipientTagInput — multi-username tag input ──
 function RecipientTagInput({ recipients, onChange, maxRecipients = 5 }) {
   const [inputVal, setInputVal] = useState("");
   const inputRef = useRef(null);
@@ -194,13 +193,12 @@ function RecipientTagInput({ recipients, onChange, maxRecipients = 5 }) {
   );
 }
 
-// ── NEW: PrivacyToggle — Public / Private selector ──
 function PrivacyToggle({ value, onChange }) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
       {[
         { key: "public",  icon: "🌐", label: "Public",  desc: "Anyone can see & join" },
-        { key: "private", icon: "🔒", label: "Private", desc: "Invite-only with password" },
+        { key: "private", icon: "🔒", label: "Private", desc: "Password required to join" },
       ].map(opt => (
         <div
           key={opt.key}
@@ -229,7 +227,6 @@ function PrivacyToggle({ value, onChange }) {
   );
 }
 
-// ── NEW: PasswordField — with generate button ──
 function PasswordField({ value, onChange, label = "Password" }) {
   function generate() {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -266,7 +263,6 @@ function PasswordField({ value, onChange, label = "Password" }) {
   );
 }
 
-// ── NEW: PrivateInfoBox ──
 function PrivateInfoBox({ invitedPlayers }) {
   return (
     <div style={{
@@ -284,42 +280,79 @@ function PrivateInfoBox({ invitedPlayers }) {
   );
 }
 
-// ── NEW: PasswordEntryModal — shown when joining a private contest ──
-function PasswordEntryModal({ contest, onConfirm, onCancel }) {
+// ── UPDATED: PasswordEntryModal — now has team picker built in after password confirmed ──
+function PasswordEntryModal({ contest, matchTeams, onConfirm, onCancel }) {
   const [pw, setPw] = useState("");
   const [err, setErr] = useState("");
+  const [pwVerified, setPwVerified] = useState(false);
+  const [selectedTeam, setSelectedTeam] = useState(null);
+
+  function handleVerify() {
+    if (!pw.trim()) { setErr("Password required"); return; }
+    // We pass the password up; the parent verifies it server-side.
+    // Optimistically show team picker — server will reject if wrong.
+    setPwVerified(true);
+    setErr("");
+  }
+
+  function handleConfirm() {
+    if (!selectedTeam) { setErr("Pick your team first"); return; }
+    onConfirm(pw.trim(), selectedTeam);
+  }
+
   return (
     <div style={{
-      position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)",
+      position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)",
       display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999,
     }}>
       <div style={{
         background: "#fff", borderRadius: 14, padding: "24px 28px",
-        width: "100%", maxWidth: 360, boxShadow: "0 8px 32px rgba(0,0,0,0.12)",
+        width: "100%", maxWidth: 380, boxShadow: "0 8px 32px rgba(0,0,0,0.14)",
       }}>
-        <div style={{ fontSize: 20, marginBottom: 4 }}>🔒 Private Contest</div>
-        <div style={{ fontSize: 13, color: "#888780", marginBottom: 20 }}>
-          <strong style={{ color: "#444441" }}>{contest.name}</strong> requires a password to join.
-        </div>
-        <div style={S.label}>Enter password</div>
-        <input
-          style={{ ...S.input, fontFamily: "monospace", letterSpacing: "0.1em" }}
-          placeholder="Enter join password..."
-          value={pw}
-          onChange={e => { setPw(e.target.value); setErr(""); }}
-          onKeyDown={e => e.key === "Enter" && (pw.trim() ? onConfirm(pw.trim()) : setErr("Password required"))}
-          autoFocus
-        />
-        {err && <div style={{ fontSize: 12, color: "#A32D2D", marginBottom: 8 }}>{err}</div>}
-        <div style={{ display: "flex", gap: 8 }}>
-          <button
-            style={S.btn()}
-            onClick={() => pw.trim() ? onConfirm(pw.trim()) : setErr("Password required")}
-          >
-            Confirm
-          </button>
-          <button style={S.btnGhost} onClick={onCancel}>Cancel</button>
-        </div>
+        {!pwVerified ? (
+          <>
+            <div style={{ fontSize: 20, marginBottom: 4 }}>🔒 Private Contest</div>
+            <div style={{ fontSize: 13, color: "#888780", marginBottom: 20 }}>
+              <strong style={{ color: "#444441" }}>{contest.name}</strong> is private — enter the password to join.
+            </div>
+            <div style={S.label}>Enter password</div>
+            <input
+              style={{ ...S.input, fontFamily: "monospace", letterSpacing: "0.1em" }}
+              placeholder="Enter join password..."
+              value={pw}
+              onChange={e => { setPw(e.target.value); setErr(""); }}
+              onKeyDown={e => e.key === "Enter" && handleVerify()}
+              autoFocus
+            />
+            {err && <div style={{ fontSize: 12, color: "#A32D2D", marginBottom: 8 }}>{err}</div>}
+            <div style={{ display: "flex", gap: 8 }}>
+              <button style={S.btn()} onClick={handleVerify}>Continue →</button>
+              <button style={S.btnGhost} onClick={onCancel}>Cancel</button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{ fontSize: 20, marginBottom: 4 }}>🏏 Pick Your Team</div>
+            <div style={{ fontSize: 13, color: "#888780", marginBottom: 16 }}>
+              Joining <strong style={{ color: "#444441" }}>{contest.name}</strong>
+            </div>
+            <div style={S.label}>Pick your team</div>
+            <div style={S.pillRow}>
+              {matchTeams.map(t => (
+                <button key={t} style={S.pill(selectedTeam === t)} onClick={() => { setSelectedTeam(t); setErr(""); }}>
+                  {t}
+                </button>
+              ))}
+            </div>
+            {err && <div style={{ fontSize: 12, color: "#A32D2D", marginBottom: 8 }}>{err}</div>}
+            <div style={{ display: "flex", gap: 8 }}>
+              <button style={S.btn("#1D9E75")} onClick={handleConfirm}>
+                Confirm — Pay {contest.entryFee} pts ✓
+              </button>
+              <button style={S.btnGhost} onClick={onCancel}>Cancel</button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -435,7 +468,6 @@ const S = {
     fontSize: 12, color: "#BA7517", marginTop: 6,
     display: "flex", alignItems: "center", gap: 5,
   },
-  // ── NEW: private badge shown on cards ──
   privateBadge: {
     display: "inline-flex", alignItems: "center", gap: 4,
     fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 99,
@@ -528,7 +560,7 @@ function HowItWorks() {
                 { icon: "🎟️", text: "Everyone pays an entry fee to join. The more players, the bigger the pot." },
                 { icon: "📊", text: "All entry fees pool together — e.g. 5 players × 50 pts = 250 pt pot." },
                 { icon: "🏅", text: "Players who picked the winning team split the entire pot equally." },
-                { icon: "🔒", text: "Private contests require a password — only players you share the code with can join." },
+                { icon: "🔒", text: "Private contests are visible to everyone but require a password to join." },
                 { icon: "🔒", text: "Once the match starts (status: Locked), you can no longer cancel or join." },
                 { icon: "⏳", text: "Contest results auto-settle after the match ends via Cricket API." },
                 { icon: "🗑️", text: "Creator can cancel before match starts — all entry fees are refunded." },
@@ -560,11 +592,10 @@ export default function Multiplayer({ username, points, setPoints }) {
 
   const [challenges, setChallenges]   = useState([]);
 
-  // ── Challenge create state ──
-  const [challengeVisibility, setChallengeVisibility] = useState("public"); // NEW
-  const [invitedPlayers, setInvitedPlayers]           = useState([]);       // NEW
-  const [challengePassword, setChallengePassword]     = useState("");       // NEW
-  const [opponentName, setOpponentName]               = useState("");       // kept for public mode
+  const [challengeVisibility, setChallengeVisibility] = useState("public");
+  const [invitedPlayers, setInvitedPlayers]           = useState([]);
+  const [challengePassword, setChallengePassword]     = useState("");
+  const [opponentName, setOpponentName]               = useState("");
   const [selectedSport, setSelectedSport]             = useState(null);
   const [selectedIPLMatch, setSelectedIPLMatch]       = useState(null);
   const [myTeam, setMyTeam]                           = useState(null);
@@ -573,7 +604,6 @@ export default function Multiplayer({ username, points, setPoints }) {
   const [acceptingId, setAcceptingId]                 = useState(null);
   const [acceptTeam, setAcceptTeam]                   = useState(null);
 
-  // ── Contest state ──
   const [contests, setContests]               = useState([]);
   const [openContests, setOpenContests]       = useState([]);
   const [contestName, setContestName]         = useState("");
@@ -583,11 +613,12 @@ export default function Multiplayer({ username, points, setPoints }) {
   const [cMatchLabel, setCMatchLabel]         = useState("");
   const [cEntryFee, setCEntryFee]             = useState("");
   const [cMaxPlayers, setCMaxPlayers]         = useState("10");
-  const [cVisibility, setCVisibility]         = useState("public");         // NEW
-  const [cPassword, setCPassword]             = useState("");               // NEW
+  const [cVisibility, setCVisibility]         = useState("public");
+  const [cPassword, setCPassword]             = useState("");
   const [joiningContest, setJoiningContest]   = useState(null);
   const [joinTeam, setJoinTeam]               = useState(null);
-  const [passwordModal, setPasswordModal]     = useState(null);             // NEW — contest requiring password
+  // ── UPDATED: passwordModal now stores the full contest object ──
+  const [passwordModal, setPasswordModal]     = useState(null);
 
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState("");
@@ -610,11 +641,19 @@ export default function Multiplayer({ username, points, setPoints }) {
     } catch {}
   }, [username]);
 
+  // ── UPDATED: fetch ALL contests (public + private) — backend must return both ──
   const fetchOpenContests = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/contests`);
+      const res = await fetch(`${API}/contests/all`);
       const data = await res.json();
-      if (res.ok) setOpenContests(data.contests);
+      if (res.ok) {
+        setOpenContests(data.contests);
+      } else {
+        // Fallback to old endpoint if /contests/all doesn't exist yet
+        const res2 = await fetch(`${API}/contests`);
+        const data2 = await res2.json();
+        if (res2.ok) setOpenContests(data2.contests);
+      }
     } catch {}
   }, []);
 
@@ -649,7 +688,6 @@ export default function Multiplayer({ username, points, setPoints }) {
     return sport?.teams || [];
   }
 
-  // ── UPDATED: handleCreate sends visibility + invitedPlayers + password ──
   async function handleCreate() {
     const isPrivate = challengeVisibility === "private";
 
@@ -679,7 +717,6 @@ export default function Multiplayer({ username, points, setPoints }) {
         wager: w,
         team1: selectedIPLMatch?.team1 || null,
         team2: selectedIPLMatch?.team2 || null,
-        // ── NEW privacy fields ──
         visibility: challengeVisibility,
         ...(isPrivate
           ? { invitedPlayers, password: challengePassword.trim() }
@@ -700,7 +737,6 @@ export default function Multiplayer({ username, points, setPoints }) {
           : `Challenge sent to ${opponentName}! ${w} pts escrowed.`;
         flash("success", msg);
         setView("list");
-        // reset all create state
         setOpponentName(""); setSelectedSport(null); setMyTeam(null);
         setMatchLabel(""); setWager(""); setSelectedIPLMatch(null);
         setChallengeVisibility("public"); setInvitedPlayers([]); setChallengePassword("");
@@ -747,7 +783,6 @@ export default function Multiplayer({ username, points, setPoints }) {
     setLoading(false);
   }
 
-  // ── UPDATED: handleCreateContest sends visibility + password ──
   async function handleCreateContest() {
     if (!contestName.trim()) return flash("error", "Enter a contest name");
     if (!cSport)             return flash("error", "Pick a sport");
@@ -778,7 +813,6 @@ export default function Multiplayer({ username, points, setPoints }) {
           entryFee: fee,
           maxPlayers: max,
           myTeam: cMyTeam,
-          // ── NEW privacy fields ──
           visibility: cVisibility,
           ...(cVisibility === "private" ? { password: cPassword.trim() } : {}),
         }),
@@ -800,9 +834,10 @@ export default function Multiplayer({ username, points, setPoints }) {
     setLoading(false);
   }
 
-  // ── UPDATED: handleJoinContest — passes password for private contests ──
-  async function handleJoinContest(contestId, password) {
-    if (!joinTeam) return flash("error", "Pick a team first");
+  // ── UPDATED: now accepts team as a parameter (passed from both modal and inline picker) ──
+  async function handleJoinContest(contestId, password, team) {
+    const teamToUse = team || joinTeam;
+    if (!teamToUse) return flash("error", "Pick a team first");
     setLoading(true);
     try {
       const res = await fetch(`${API}/contest/join`, {
@@ -811,7 +846,7 @@ export default function Multiplayer({ username, points, setPoints }) {
         body: JSON.stringify({
           contestId,
           username,
-          team: joinTeam,
+          team: teamToUse,
           ...(password ? { password } : {}),
         }),
       });
@@ -822,20 +857,28 @@ export default function Multiplayer({ username, points, setPoints }) {
         setJoiningContest(null); setJoinTeam(null); setPasswordModal(null);
         fetchMyContests(); fetchOpenContests();
       } else {
-        flash("error", data.message || "Failed");
-        setPasswordModal(null);
+        flash("error", data.message || "Failed — check your password and try again");
+        // Keep modal open if password was wrong so user can retry
+        if (password) {
+          // re-show modal — don't clear passwordModal
+        } else {
+          setPasswordModal(null);
+        }
       }
     } catch { flash("error", "Can't connect to server"); }
     setLoading(false);
   }
 
-  // ── NEW: initiateJoin — routes to password modal if private ──
+  // ── UPDATED: ALL contests show in the list; private ones open the password modal ──
   function initiateJoin(contest) {
+    setJoinTeam(null);
     if (contest.visibility === "private") {
+      // Show password modal — team picker is now inside the modal
       setPasswordModal(contest);
+      setJoiningContest(null);
     } else {
+      // Public: show inline team picker
       setJoiningContest(contest._id);
-      setJoinTeam(null);
     }
   }
 
@@ -854,13 +897,20 @@ export default function Multiplayer({ username, points, setPoints }) {
     setLoading(false);
   }
 
+  // Helper: get teams for a contest card
+  function getContestTeams(c) {
+    if (c.team1 && c.team2) return [c.team1, c.team2];
+    return SPORTS.find(s => s.id === c.sport)?.teams || [];
+  }
+
   return (
     <div style={S.container}>
-      {/* ── Password modal for private contests ── */}
+      {/* ── Password + team picker modal for private contests ── */}
       {passwordModal && (
         <PasswordEntryModal
           contest={passwordModal}
-          onConfirm={(pw) => handleJoinContest(passwordModal._id, pw)}
+          matchTeams={getContestTeams(passwordModal)}
+          onConfirm={(pw, team) => handleJoinContest(passwordModal._id, pw, team)}
           onCancel={() => { setPasswordModal(null); setJoiningContest(null); setJoinTeam(null); }}
         />
       )}
@@ -928,13 +978,11 @@ export default function Multiplayer({ username, points, setPoints }) {
                   <div>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
                       <span style={{ fontSize: 13, color: "#888780" }}>{sport?.emoji} {c.matchLabel}</span>
-                      {/* ── NEW: show private badge ── */}
                       {c.visibility === "private" && (
                         <span style={S.privateBadge}>🔒 Private</span>
                       )}
                     </div>
                     <div style={{ fontSize: 15, fontWeight: 500 }}>vs <span style={{ color: "#7F77DD" }}>{opponent || "Invited players"}</span></div>
-                    {/* ── NEW: show invited players list for private challenges ── */}
                     {c.visibility === "private" && c.invitedPlayers?.length > 0 && (
                       <div style={{ fontSize: 11, color: "#888780", marginTop: 3 }}>
                         Invited: {c.invitedPlayers.join(", ")}
@@ -993,7 +1041,6 @@ export default function Multiplayer({ username, points, setPoints }) {
       ════════════════════════════════════════════════════ */}
       {view === "create" && (
         <div style={S.card}>
-          {/* ── NEW: Privacy toggle ── */}
           <div style={S.label}>Challenge type</div>
           <PrivacyToggle value={challengeVisibility} onChange={(v) => {
             setChallengeVisibility(v);
@@ -1002,7 +1049,6 @@ export default function Multiplayer({ username, points, setPoints }) {
             setOpponentName("");
           }} />
 
-          {/* ── CHANGED: Private = multi-invite + password; Public = single opponent ── */}
           {challengeVisibility === "private" ? (
             <>
               <PrivateInfoBox invitedPlayers={invitedPlayers} />
@@ -1175,6 +1221,7 @@ export default function Multiplayer({ username, points, setPoints }) {
 
       {/* ════════════════════════════════════════════════════
           CONTESTS — LIST / BROWSE VIEW
+          ALL contests shown; private ones need password to join
       ════════════════════════════════════════════════════ */}
       {view === "contests" && (
         <div>
@@ -1198,7 +1245,6 @@ export default function Multiplayer({ username, points, setPoints }) {
                   <div>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                       <span style={{ fontWeight: 600, fontSize: 15 }}>{c.name}</span>
-                      {/* ── NEW: private badge on contest card ── */}
                       {c.visibility === "private" && (
                         <span style={S.privateBadge}>🔒 Private</span>
                       )}
@@ -1275,28 +1321,38 @@ export default function Multiplayer({ username, points, setPoints }) {
             );
           })}
 
-          <div style={{ fontSize: 13, fontWeight: 600, color: "#444441", margin: "20px 0 10px" }}>Open Contests — Join Now</div>
+          {/* ── UPDATED: "All Contests" section — shows ALL contests including private ── */}
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#444441", margin: "20px 0 6px" }}>All Contests — Join Now</div>
+          <div style={{ fontSize: 12, color: "#888780", marginBottom: 12 }}>
+            🌐 Public contests are open to join · 🔒 Private contests require a password
+          </div>
           {openContests.filter(c => !c.participants.find(p => p.username === username)).length === 0 && (
             <div style={{ ...S.cardDark, textAlign: "center", color: "#888780", fontSize: 14, padding: 24 }}>
-              {serverOnline ? "No open contests to join right now." : "⚠️ Server offline — can't load contests."}
+              {serverOnline ? "No contests to join right now." : "⚠️ Server offline — can't load contests."}
             </div>
           )}
           {openContests
             .filter(c => !c.participants.find(p => p.username === username))
             .map(c => {
-              const totalPot = c.entryFee * c.participants.length;
-              const pct = Math.round((c.participants.length / c.maxPlayers) * 100);
-              const matchTeams = c.team1 && c.team2 ? [c.team1, c.team2] : [];
-              const maxPrize = c.entryFee * c.maxPlayers;
+              const totalPot  = c.entryFee * c.participants.length;
+              const pct       = Math.round((c.participants.length / c.maxPlayers) * 100);
+              const matchTeams = getContestTeams(c);
+              const maxPrize  = c.entryFee * c.maxPlayers;
               const isPrivate = c.visibility === "private";
               return (
-                <div key={c._id} style={S.card}>
+                <div key={c._id} style={{
+                  ...S.card,
+                  // Subtle visual distinction for private contests
+                  borderColor: isPrivate ? "#AFA9EC" : "#d3d1c7",
+                }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                     <div>
                       <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                         <span style={{ fontWeight: 600, fontSize: 15 }}>{c.name}</span>
-                        {/* ── NEW: private badge ── */}
-                        {isPrivate && <span style={S.privateBadge}>🔒 Private</span>}
+                        {isPrivate
+                          ? <span style={S.privateBadge}>🔒 Private — password required</span>
+                          : <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 99, background: "#E1F5EE", color: "#0F6E56", border: "0.5px solid #5DCAA5" }}>🌐 Public</span>
+                        }
                       </div>
                       <div style={{ fontSize: 12, color: "#888780", marginTop: 2 }}>🏏 {c.matchLabel}</div>
                       <div style={{ fontSize: 12, color: "#888780", marginTop: 1 }}>Created by: {c.createdBy}</div>
@@ -1315,17 +1371,17 @@ export default function Multiplayer({ username, points, setPoints }) {
                   </div>
                   <div style={S.progressBar(pct)}><div style={S.progressFill(pct)} /></div>
 
-                  {/* ── NEW: private contest shows lock hint instead of team picker until password entered ── */}
+                  {/* Public contests: inline team picker; Private: handled by modal */}
                   {joiningContest === c._id ? (
                     <div style={{ marginTop: 12 }}>
                       <div style={S.label}>Pick your team</div>
                       <div style={S.pillRow}>
-                        {(matchTeams.length > 0 ? matchTeams : (SPORTS.find(s => s.id === c.sport)?.teams || [])).map(t => (
+                        {matchTeams.map(t => (
                           <button key={t} style={S.pill(joinTeam === t)} onClick={() => setJoinTeam(t)}>{t}</button>
                         ))}
                       </div>
                       <div style={S.row}>
-                        <button style={S.btn("#1D9E75")} onClick={() => handleJoinContest(c._id)} disabled={loading}>
+                        <button style={S.btn("#1D9E75")} onClick={() => handleJoinContest(c._id, null, joinTeam)} disabled={loading}>
                           {loading ? "Joining..." : `Confirm — Pay ${c.entryFee} pts ✓`}
                         </button>
                         <button style={S.btnGhost} onClick={() => { setJoiningContest(null); setJoinTeam(null); }}>Cancel</button>
@@ -1333,7 +1389,7 @@ export default function Multiplayer({ username, points, setPoints }) {
                     </div>
                   ) : (
                     <button
-                      style={{ ...S.btn(isPrivate ? "#534AB7" : undefined), marginTop: 12 }}
+                      style={{ ...S.btn(isPrivate ? "#534AB7" : "#1D9E75"), marginTop: 12 }}
                       onClick={() => initiateJoin(c)}
                     >
                       {isPrivate ? "🔒 Join with Password" : `Join Contest — ${c.entryFee} pts entry`}
@@ -1356,7 +1412,6 @@ export default function Multiplayer({ username, points, setPoints }) {
           <input style={S.input} placeholder="e.g. RCB vs SRH Final Showdown"
             value={contestName} onChange={e => setContestName(e.target.value)} />
 
-          {/* ── NEW: visibility toggle for contests ── */}
           <div style={S.label}>Visibility</div>
           <PrivacyToggle value={cVisibility} onChange={(v) => { setCVisibility(v); setCPassword(""); }} />
 
