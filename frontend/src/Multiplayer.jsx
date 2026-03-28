@@ -113,7 +113,6 @@ function getChallengeTeams(challenge) {
   return sport?.teams || [];
 }
 
-// ─── Points Info Box ──────────────────────────────────────────────────────────
 function PointsInfoBox({ icon, label, value, color }) {
   return (
     <div style={{
@@ -297,8 +296,6 @@ export default function Multiplayer({ username, points, setPoints }) {
   const [cMaxPlayers, setCMaxPlayers]         = useState("10");
   const [joiningContest, setJoiningContest]   = useState(null);
   const [joinTeam, setJoinTeam]               = useState(null);
-  const [settlingContest, setSettlingContest] = useState(null);
-  const [contestWinTeam, setContestWinTeam]   = useState("");
 
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState("");
@@ -522,25 +519,6 @@ export default function Multiplayer({ username, points, setPoints }) {
     setLoading(false);
   }
 
-  async function handleSettleContest(contestId) {
-    if (!contestWinTeam.trim()) return flash("error", "Enter winning team");
-    setLoading(true);
-    try {
-      const res = await fetch(`${API}/contest/settle`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contestId, winningTeam: contestWinTeam.trim(), settledBy: username }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        flash("success", data.message);
-        setSettlingContest(null); setContestWinTeam("");
-        fetchMyContests(); fetchOpenContests();
-      } else { flash("error", data.message); }
-    } catch { flash("error", "Can't connect to server"); }
-    setLoading(false);
-  }
-
   async function handleCancelContest(contestId) {
     setLoading(true);
     try {
@@ -621,12 +599,9 @@ export default function Multiplayer({ username, points, setPoints }) {
                     <div style={{ fontSize: 13, color: "#888780", marginBottom: 3 }}>{sport?.emoji} {c.matchLabel}</div>
                     <div style={{ fontSize: 15, fontWeight: 500 }}>vs <span style={{ color: "#7F77DD" }}>{opponent}</span></div>
                   </div>
-                  <div style={{ textAlign: "right" }}>
-                    {statusBadge(c.status)}
-                  </div>
+                  <div style={{ textAlign: "right" }}>{statusBadge(c.status)}</div>
                 </div>
 
-                {/* ✅ Points summary row */}
                 <div style={S.pointsRow}>
                   <PointsInfoBox icon="💰" label="Your Wager" value={`${c.wager} pts`} color="#BA7517" />
                   <PointsInfoBox icon="🏆" label="Win Prize" value={`${c.wager * 2} pts`} color="#1D9E75" />
@@ -746,7 +721,6 @@ export default function Multiplayer({ username, points, setPoints }) {
           <input style={S.input} type="number" placeholder="Or enter custom amount..."
             value={wager} onChange={e => setWager(e.target.value)} max={points} />
 
-          {/* ✅ Live potential win preview */}
           {parseInt(wager) > 0 && (
             <div style={S.pointsRow}>
               <PointsInfoBox icon="💰" label="You Wager" value={`${wager} pts`} color="#BA7517" />
@@ -790,12 +764,9 @@ export default function Multiplayer({ username, points, setPoints }) {
                       <span style={{ color: "#888780", fontWeight: 400 }}> challenges you!</span>
                     </div>
                   </div>
-                  <div style={{ textAlign: "right" }}>
-                    {statusBadge(c.status)}
-                  </div>
+                  <div style={{ textAlign: "right" }}>{statusBadge(c.status)}</div>
                 </div>
 
-                {/* ✅ Points summary for incoming challenge */}
                 <div style={S.pointsRow}>
                   <PointsInfoBox icon="💰" label="Entry Cost" value={`${c.wager} pts`} color="#BA7517" />
                   <PointsInfoBox icon="🏆" label="Prize Pool" value={`${c.wager * 2} pts`} color="#1D9E75" />
@@ -860,12 +831,11 @@ export default function Multiplayer({ username, points, setPoints }) {
             </div>
           )}
           {contests.map(c => {
-            const isCreator  = c.createdBy === username;
-            const myEntry    = c.participants.find(p => p.username === username);
-            const totalPot   = c.entryFee * c.participants.length;
-            const pct        = Math.round((c.participants.length / c.maxPlayers) * 100);
-            // Estimate prize if you're the only winner
-            const maxPrize   = totalPot;
+            const myEntry  = c.participants.find(p => p.username === username);
+            const totalPot = c.entryFee * c.participants.length;
+            const maxPrize = totalPot;
+            const pct      = Math.round((c.participants.length / c.maxPlayers) * 100);
+            const isCreator = c.createdBy === username;
             return (
               <div key={c._id} style={S.card}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
@@ -873,12 +843,9 @@ export default function Multiplayer({ username, points, setPoints }) {
                     <div style={{ fontWeight: 600, fontSize: 15 }}>{c.name}</div>
                     <div style={{ fontSize: 12, color: "#888780", marginTop: 2 }}>🏏 {c.matchLabel}</div>
                   </div>
-                  <div style={{ textAlign: "right" }}>
-                    {statusBadge(c.status)}
-                  </div>
+                  <div style={{ textAlign: "right" }}>{statusBadge(c.status)}</div>
                 </div>
 
-                {/* ✅ Points summary for contest */}
                 <div style={S.pointsRow}>
                   <PointsInfoBox icon="🎟️" label="Entry Fee" value={`${c.entryFee} pts`} color="#BA7517" />
                   <PointsInfoBox icon="💰" label="Total Pot" value={`${totalPot} pts`} color="#7F77DD" />
@@ -901,11 +868,33 @@ export default function Multiplayer({ username, points, setPoints }) {
                     </span>
                   ))}
                 </div>
+
                 {myEntry && (
                   <div style={{ fontSize: 12, color: "#1D9E75", marginTop: 8 }}>
                     ✅ You picked <strong>{myEntry.team}</strong>
                   </div>
                 )}
+
+                {/* ── Auto-settle notice instead of manual button ── */}
+                {(c.status === "open" || c.status === "locked") && (
+                  <div style={{
+                    marginTop: 12, fontSize: 12, color: "#888780",
+                    padding: "8px 12px", borderRadius: 8, background: "#F8F7F3",
+                    border: "0.5px solid #e8e6dc",
+                  }}>
+                    ⏳ Auto-settling after match ends via Cricket API
+                  </div>
+                )}
+
+                {/* Cancel button still available for creator */}
+                {isCreator && (c.status === "open" || c.status === "locked") && (
+                  <div style={{ marginTop: 8 }}>
+                    <button style={S.btn("#E24B4A")} onClick={() => handleCancelContest(c._id)} disabled={loading}>
+                      Cancel Contest
+                    </button>
+                  </div>
+                )}
+
                 {c.status === "settled" && (
                   <div style={{
                     fontSize: 13, fontWeight: 600, marginTop: 8, padding: "10px 14px", borderRadius: 8,
@@ -915,36 +904,6 @@ export default function Multiplayer({ username, points, setPoints }) {
                     {c.winner?.includes(username)
                       ? `🏆 You won! Team ${c.winningTeam} won · Prize: ${Math.floor(totalPot / (c.winner.split(", ").length))} pts`
                       : `Result: ${c.winningTeam} won · Winner(s): ${c.winner}`}
-                  </div>
-                )}
-                {isCreator && (c.status === "open" || c.status === "locked") && (
-                  <div style={{ ...S.row, marginTop: 12 }}>
-                    {settlingContest === c._id ? (
-                      <div style={{ width: "100%" }}>
-                        <div style={S.label}>Select the winning team</div>
-                        <div style={S.pillRow}>
-                          {(c.team1 && c.team2
-                            ? [c.team1, c.team2]
-                            : [...new Set(c.participants.map(p => p.team))]
-                          ).map(t => (
-                            <button key={t} style={S.pill(contestWinTeam === t)} onClick={() => setContestWinTeam(t)}>{t}</button>
-                          ))}
-                        </div>
-                        <div style={S.row}>
-                          <button style={S.btn("#1D9E75")} onClick={() => handleSettleContest(c._id)} disabled={loading}>Settle</button>
-                          <button style={S.btnGhost} onClick={() => { setSettlingContest(null); setContestWinTeam(""); }}>Cancel</button>
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        <button style={S.btn("#1D9E75")} onClick={() => { setSettlingContest(c._id); setContestWinTeam(""); }}>
-                          Settle Result
-                        </button>
-                        <button style={S.btn("#E24B4A")} onClick={() => handleCancelContest(c._id)} disabled={loading}>
-                          Cancel Contest
-                        </button>
-                      </>
-                    )}
                   </div>
                 )}
               </div>
@@ -963,7 +922,7 @@ export default function Multiplayer({ username, points, setPoints }) {
               const totalPot = c.entryFee * c.participants.length;
               const pct = Math.round((c.participants.length / c.maxPlayers) * 100);
               const matchTeams = c.team1 && c.team2 ? [c.team1, c.team2] : [];
-              const maxPrize = c.entryFee * c.maxPlayers; // best case: only winner
+              const maxPrize = c.entryFee * c.maxPlayers;
               return (
                 <div key={c._id} style={S.card}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
@@ -972,12 +931,9 @@ export default function Multiplayer({ username, points, setPoints }) {
                       <div style={{ fontSize: 12, color: "#888780", marginTop: 2 }}>🏏 {c.matchLabel}</div>
                       <div style={{ fontSize: 12, color: "#888780", marginTop: 1 }}>Created by: {c.createdBy}</div>
                     </div>
-                    <div style={{ textAlign: "right" }}>
-                      {statusBadge(c.status)}
-                    </div>
+                    <div style={{ textAlign: "right" }}>{statusBadge(c.status)}</div>
                   </div>
 
-                  {/* ✅ Points summary for open contests */}
                   <div style={S.pointsRow}>
                     <PointsInfoBox icon="🎟️" label="Entry Fee" value={`${c.entryFee} pts`} color="#BA7517" />
                     <PointsInfoBox icon="💰" label="Pot So Far" value={`${totalPot} pts`} color="#7F77DD" />
@@ -1081,7 +1037,6 @@ export default function Multiplayer({ username, points, setPoints }) {
           <input style={S.input} type="number" placeholder="Custom (2–12)"
             value={cMaxPlayers} min={2} max={12} onChange={e => setCMaxPlayers(e.target.value)} />
 
-          {/* ✅ Live pot preview */}
           {cEntryFee && cMaxPlayers && parseInt(cEntryFee) > 0 && (
             <div style={S.pointsRow}>
               <PointsInfoBox icon="🎟️" label="Your Entry" value={`${parseInt(cEntryFee)} pts`} color="#BA7517" />

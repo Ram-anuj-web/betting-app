@@ -324,20 +324,91 @@ async function checkAndSettleBets() {
   }
 }
 // ─── Smart scheduling — only run during match hours (IST 15:00–23:59) ────────
+// ─── Smart scheduling — only run during match hours (IST 15:00–23:59) ────────
 function isMatchHours() {
   const now = new Date();
   const istHour = new Date(now.getTime() + (5.5 * 60 * 60 * 1000)).getUTCHours();
   return istHour >= 15 && istHour <= 23;
 }
 
+async function checkAndSettleContests() {
+  try {
+    const openContests = await Contest.find({ status: { $in: ["open", "locked"] } });
+    if (openContests.length === 0) return;
+
+    const apiRes = await fetch(
+      `https://api.cricapi.com/v1/currentMatches?apikey=${CRICKET_API_KEY}&offset=0`
+    );
+    const apiData = await apiRes.json();
+    if (!apiData.data) return;
+
+    for (const contest of openContests) {
+      if (!contest.team1 || !contest.team2) continue;
+
+      // Find the IPL match in schedule to check if it's over
+      const iplMatch = IPL_MATCHES.find(
+        m => m.team1 === contest.team1 && m.team2 === contest.team2
+      );
+      if (!iplMatch) continue;
+
+      const matchDate = new Date(`${iplMatch.date}T${iplMatch.time}:00+05:30`);
+      const endTime   = new Date(matchDate.getTime() + 4 * 60 * 60 * 1000);
+      if (new Date() < endTime) continue; // not over yet
+
+      // Find result in Cricket API
+      const apiMatch = apiData.data.find(m =>
+        m.matchEnded &&
+        m.teams &&
+        m.teams.some(t => t.includes(contest.team1)) &&
+        m.teams.some(t => t.includes(contest.team2))
+      );
+      if (!apiMatch || !apiMatch.matchWinner) continue;
+
+      const winningTeam = apiMatch.matchWinner.includes(contest.team1)
+        ? contest.team1
+        : contest.team2;
+
+      // Settle the contest
+      const winners   = contest.participants.filter(p => p.team === winningTeam);
+      const totalPot  = contest.entryFee * contest.participants.length;
+
+      if (winners.length === 0) {
+        for (const p of contest.participants) {
+          const u = await User.findOne({ name: p.username });
+          if (u) { u.points += contest.entryFee; await u.save(); }
+        }
+        contest.status = "settled";
+        contest.winningTeam = winningTeam;
+        contest.winner = "refund";
+      } else {
+        const prize     = Math.floor(totalPot / winners.length);
+        const remainder = totalPot - prize * winners.length;
+        for (let i = 0; i < winners.length; i++) {
+          const u = await User.findOne({ name: winners[i].username });
+          if (u) { u.points += prize + (i === 0 ? remainder : 0); await u.save(); }
+        }
+        contest.status      = "settled";
+        contest.winningTeam = winningTeam;
+        contest.winner      = winners.map(w => w.username).join(", ");
+      }
+
+      await contest.save();
+      console.log(`Contest "${contest.name}" auto-settled. Winner team: ${winningTeam}`);
+    }
+  } catch (err) {
+    console.error("checkAndSettleContests error:", err.message);
+  }
+}
+
 setInterval(() => {
   if (isMatchHours()) {
-    console.log("Match hours active — checking bets...");
+    console.log("Match hours active — checking bets & contests...");
     checkAndSettleBets();
+    checkAndSettleContests();
   } else {
-    console.log("Outside match hours — skipping bet check.");
+    console.log("Outside match hours — skipping.");
   }
-}, 15 * 60 * 1000); // every 15 mins;
+}, 15 * 60 * 1000);// every 15 mins;
 
 // ─── Challenge Routes ─────────────────────────────────────────────────────────
 app.post("/challenge/create", async (req, res) => {
