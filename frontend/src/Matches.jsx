@@ -15,6 +15,19 @@ const TEAM_COLORS = {
   DC:   { bg: "#185FA5", light: "#E6F1FB" },
 };
 
+const TEAM_LOGOS = {
+  RCB:  "https://scores.iplt20.com/ipl/teamlogos/RCB.png",
+  MI:   "https://scores.iplt20.com/ipl/teamlogos/MI.png",
+  CSK:  "https://scores.iplt20.com/ipl/teamlogos/CSK.png",
+  KKR:  "https://scores.iplt20.com/ipl/teamlogos/KKR.png",
+  SRH:  "https://scores.iplt20.com/ipl/teamlogos/SRH.png",
+  RR:   "https://scores.iplt20.com/ipl/teamlogos/RR.png",
+  PBKS: "https://scores.iplt20.com/ipl/teamlogos/PBKS.png",
+  GT:   "https://scores.iplt20.com/ipl/teamlogos/GT.png",
+  LSG:  "https://scores.iplt20.com/ipl/teamlogos/LSG.png",
+  DC:   "https://scores.iplt20.com/ipl/teamlogos/DC.png",
+};
+
 export default function Matches({ onBetOnMatch }) {
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -30,7 +43,6 @@ export default function Matches({ onBetOnMatch }) {
       const res = await fetch(`${API}/ipl-matches`);
       if (!res.ok) throw new Error("Server returned " + res.status);
       const data = await res.json();
-      // Handle both {matches: [...]} and plain array responses
       const list = Array.isArray(data) ? data : data.matches || [];
       setMatches(list);
     } catch (err) {
@@ -89,7 +101,8 @@ export default function Matches({ onBetOnMatch }) {
       alignItems: side === "left" ? "flex-start" : "flex-end",
     }),
     teamBadge: (team) => ({
-      display: "inline-block", padding: "6px 14px", borderRadius: 8,
+      display: "inline-flex", alignItems: "center",
+      padding: "6px 14px", borderRadius: 8,
       background: TEAM_COLORS[team]?.light || "#F1EFE8",
       color: TEAM_COLORS[team]?.bg || "#444441",
       fontWeight: 600, fontSize: 16,
@@ -178,11 +191,27 @@ export default function Matches({ onBetOnMatch }) {
 
           <div style={s.teamsRow}>
             <div style={s.teamBox("left")}>
-              <span style={s.teamBadge(match.team1)}>{match.team1}</span>
+              <span style={s.teamBadge(match.team1)}>
+                <img
+                  src={TEAM_LOGOS[match.team1]}
+                  alt={match.team1}
+                  style={{ width: 36, height: 36, objectFit: "contain", marginRight: 8 }}
+                  onError={e => { e.target.style.display = "none"; }}
+                />
+                {match.team1}
+              </span>
             </div>
             <span style={s.vs}>VS</span>
             <div style={s.teamBox("right")}>
-              <span style={s.teamBadge(match.team2)}>{match.team2}</span>
+              <span style={s.teamBadge(match.team2)}>
+                {match.team2}
+                <img
+                  src={TEAM_LOGOS[match.team2]}
+                  alt={match.team2}
+                  style={{ width: 36, height: 36, objectFit: "contain", marginLeft: 8 }}
+                  onError={e => { e.target.style.display = "none"; }}
+                />
+              </span>
             </div>
           </div>
 
