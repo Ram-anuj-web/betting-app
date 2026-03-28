@@ -25,11 +25,27 @@ export default function App() {
   const [betAmount, setBetAmount] = useState("");
   const [betPlaced, setBetPlaced] = useState(null);
   const [myBets, setMyBets] = useState([]);
-  const [leaderboard, setLeaderboard] = useState([]); // ← real leaderboard
+  const [leaderboard, setLeaderboard] = useState([]);
   const [animatePoints, setAnimatePoints] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [prefilledMatch, setPrefilledMatch] = useState(null);
+
+  // ─── FIX 2: Back button support ───────────────────────────────────────────
+  useEffect(() => {
+    window.history.pushState({ screen }, "", "");
+  }, [screen]);
+
+  useEffect(() => {
+    const handleBack = (e) => {
+      if (e.state?.screen) {
+        setScreen(e.state.screen);
+      }
+    };
+    window.addEventListener("popstate", handleBack);
+    return () => window.removeEventListener("popstate", handleBack);
+  }, []);
+  // ──────────────────────────────────────────────────────────────────────────
 
   useEffect(() => {
     if (username) fetchMyBets();
@@ -75,7 +91,7 @@ export default function App() {
         setPoints(data.points);
         setLockedPoints(data.lockedPoints || 0);
         setScreen("home");
-        fetchLeaderboard(); // ← fetch real leaderboard on login
+        fetchLeaderboard();
       } else {
         setError(data.message || "Something went wrong!");
       }
@@ -132,7 +148,7 @@ export default function App() {
         setLockedPoints(data.lockedPoints);
         setBetPlaced({ amount, team: selectedTeam, matchLabel: prefilledMatch.matchLabel });
         fetchMyBets();
-        fetchLeaderboard(); // ← refresh leaderboard after bet
+        fetchLeaderboard();
         setTimeout(() => {
           setBetPlaced(null);
           setSelectedTeam(null);
@@ -173,7 +189,6 @@ export default function App() {
     return "⏳";
   };
 
-  // Build leaderboard list — merge real users, highlight current user
   const leaderboardList = () => {
     const others = leaderboard.filter(p => p.name !== username);
     const me = { name: username + " (You)", points };
@@ -218,7 +233,14 @@ export default function App() {
       {screen !== "auth" && (
         <>
           <nav className="nav">
-            <div className="nav-logo">⚡ FANTASYBET</div>
+            {/* ✅ FIX 1: Logo navigates to home on click */}
+            <div
+              className="nav-logo"
+              onClick={() => setScreen("home")}
+              style={{ cursor: "pointer" }}
+            >
+              ⚡ FANTASYBET
+            </div>
             <div className="nav-links">
               <button className={screen === "home" ? "active" : ""} onClick={() => setScreen("home")}>Home</button>
               <button className={screen === "matches" ? "active" : ""} onClick={() => setScreen("matches")}>🏏 IPL</button>
@@ -381,7 +403,7 @@ export default function App() {
             </div>
           )}
 
-          {/* Leaderboard Screen — real data from MongoDB */}
+          {/* Leaderboard Screen */}
           {screen === "leaderboard" && (
             <div className="screen leaderboard-screen">
               <h2 className="screen-title">🏆 Leaderboard</h2>
