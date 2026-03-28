@@ -45,7 +45,6 @@ const challengeSchema = new mongoose.Schema({
   wager: Number,
   status: { type: String, enum: ["pending", "active", "settled", "cancelled"], default: "pending" },
   winner: { type: String, default: null },
-  // ── Privacy fields ──
   visibility: { type: String, enum: ["public", "private"], default: "public" },
   invitedPlayers: [{ type: String }],
   password: { type: String, default: null },
@@ -72,7 +71,6 @@ const contestSchema = new mongoose.Schema({
   status: { type: String, enum: ["open", "locked", "settled", "cancelled"], default: "open" },
   winner: { type: String, default: null },
   winningTeam: { type: String, default: null },
-  // ── Privacy fields ──
   visibility: { type: String, enum: ["public", "private"], default: "public" },
   password: { type: String, default: null },
   createdAt: { type: Date, default: Date.now },
@@ -260,7 +258,7 @@ app.get("/live-scores", async (req, res) => {
     }
 
     const apiRes = await fetch(
-      `https://api.cricapi.com/v1/currentMatches?apikey=${CRICKET_API_KEY}&offset=0`
+      `https://api.cricapi.com/v1/matches?apikey=${CRICKET_API_KEY}&offset=0`
     );
     const apiData = await apiRes.json();
 
@@ -319,8 +317,9 @@ async function checkAndSettleBets() {
         if (new Date() < endTime) continue;
 
         try {
+          // ✅ FIX: use /matches instead of /currentMatches so finished games are included
           const res = await fetch(
-            `https://api.cricapi.com/v1/currentMatches?apikey=${CRICKET_API_KEY}&offset=0`
+            `https://api.cricapi.com/v1/matches?apikey=${CRICKET_API_KEY}&offset=0`
           );
           const data = await res.json();
           if (!data.data) continue;
@@ -328,11 +327,14 @@ async function checkAndSettleBets() {
           const apiMatch = data.data.find(m =>
             m.matchEnded &&
             m.teams &&
-            m.teams.some(t => t.includes(iplMatch.team1)) &&
-            m.teams.some(t => t.includes(iplMatch.team2))
+            m.teams.some(t => t.toUpperCase().includes(iplMatch.team1.toUpperCase())) &&
+            m.teams.some(t => t.toUpperCase().includes(iplMatch.team2.toUpperCase()))
           );
 
-          if (!apiMatch || !apiMatch.matchWinner) continue;
+          if (!apiMatch || !apiMatch.matchWinner) {
+            console.log(`No API result yet for ${matchId}, will retry next interval`);
+            continue;
+          }
 
           const winner = apiMatch.matchWinner;
           const matchBets = pendingBets.filter(b => b.matchId === matchId);
@@ -346,6 +348,7 @@ async function checkAndSettleBets() {
             await user.save();
             bet.status = won ? "won" : "lost";
             await bet.save();
+            console.log(`Settled bet for ${bet.username} on ${matchId}: ${bet.status}`);
           }
         } catch (err) {
           console.error(`Error settling IPL match ${matchId}:`, err.message);
@@ -353,15 +356,21 @@ async function checkAndSettleBets() {
 
       } else {
         try {
+          // ✅ FIX: use /matches instead of /currentMatches
           const res = await fetch(
-            `https://api.cricapi.com/v1/match_info?apikey=${CRICKET_API_KEY}&id=${matchId}`
+            `https://api.cricapi.com/v1/matches?apikey=${CRICKET_API_KEY}&offset=0`
           );
           const data = await res.json();
-          if (!data.data || !data.data.matchEnded) continue;
-          const winner = data.data.matchWinner;
-          if (!winner) continue;
+          if (!data.data) continue;
 
+          const apiMatch = data.data.find(m =>
+            m.id === matchId && m.matchEnded
+          );
+          if (!apiMatch || !apiMatch.matchWinner) continue;
+
+          const winner = apiMatch.matchWinner;
           const matchBets = pendingBets.filter(b => b.matchId === matchId);
+
           for (const bet of matchBets) {
             const user = await User.findOne({ name: bet.username });
             if (!user) continue;
@@ -393,8 +402,9 @@ async function checkAndSettleContests() {
     const openContests = await Contest.find({ status: { $in: ["open", "locked"] } });
     if (openContests.length === 0) return;
 
+    // ✅ FIX: use /matches instead of /currentMatches
     const apiRes = await fetch(
-      `https://api.cricapi.com/v1/currentMatches?apikey=${CRICKET_API_KEY}&offset=0`
+      `https://api.cricapi.com/v1/matches?apikey=${CRICKET_API_KEY}&offset=0`
     );
     const apiData = await apiRes.json();
     if (!apiData.data) return;
@@ -414,12 +424,12 @@ async function checkAndSettleContests() {
       const apiMatch = apiData.data.find(m =>
         m.matchEnded &&
         m.teams &&
-        m.teams.some(t => t.includes(contest.team1)) &&
-        m.teams.some(t => t.includes(contest.team2))
+        m.teams.some(t => t.toUpperCase().includes(contest.team1.toUpperCase())) &&
+        m.teams.some(t => t.toUpperCase().includes(contest.team2.toUpperCase()))
       );
       if (!apiMatch || !apiMatch.matchWinner) continue;
 
-      const winningTeam = apiMatch.matchWinner.includes(contest.team1)
+      const winningTeam = apiMatch.matchWinner.toUpperCase().includes(contest.team1.toUpperCase())
         ? contest.team1
         : contest.team2;
 
@@ -463,6 +473,87 @@ setInterval(() => {
     console.log("Outside match hours — skipping.");
   }
 }, 15 * 60 * 1000);
+
+// ─── Admin: Manual Settle ─────────────────────────────────────────────────────
+// Use this whenever auto-settle fails or after a match ends
+// POST /admin/settle-match { matchId: "ipl-1", winner: "Royal Challengers Bengaluru" }
+app.post("/admin/settle-match", async (req, res) => {
+  try {
+    const { matchId, winner } = req.body;
+    if (!matchId || !winner)
+      return res.status(400).json({ message: "matchId and winner are required" });
+
+    // Settle bets
+    const pendingBets = await Bet.find({ matchId, status: "pending" });
+    let betsSettled = 0;
+    for (const bet of pendingBets) {
+      const user = await User.findOne({ name: bet.username });
+      if (!user) continue;
+      const won = winner.toLowerCase().includes(bet.team.toLowerCase());
+      if (won) user.points += bet.amount * 2;
+      user.lockedPoints = Math.max(0, (user.lockedPoints || 0) - bet.amount);
+      await user.save();
+      bet.status = won ? "won" : "lost";
+      await bet.save();
+      betsSettled++;
+    }
+
+    // Settle contests linked to this IPL match
+    let contestsSettled = 0;
+    if (matchId.startsWith("ipl-")) {
+      const iplId = parseInt(matchId.replace("ipl-", ""));
+      const iplMatch = IPL_MATCHES.find(m => m.id === iplId);
+
+      if (iplMatch) {
+        const relatedContests = await Contest.find({
+          status: { $in: ["open", "locked"] },
+          team1: iplMatch.team1,
+          team2: iplMatch.team2,
+        });
+
+        for (const contest of relatedContests) {
+          const winningTeam = winner.toLowerCase().includes(iplMatch.team1.toLowerCase())
+            ? iplMatch.team1
+            : iplMatch.team2;
+
+          const winners  = contest.participants.filter(p => p.team === winningTeam);
+          const totalPot = contest.entryFee * contest.participants.length;
+
+          if (winners.length === 0) {
+            for (const p of contest.participants) {
+              const u = await User.findOne({ name: p.username });
+              if (u) { u.points += contest.entryFee; await u.save(); }
+            }
+            contest.winner = "refund";
+          } else {
+            const prize     = Math.floor(totalPot / winners.length);
+            const remainder = totalPot - prize * winners.length;
+            for (let i = 0; i < winners.length; i++) {
+              const u = await User.findOne({ name: winners[i].username });
+              if (u) { u.points += prize + (i === 0 ? remainder : 0); await u.save(); }
+            }
+            contest.winner = winners.map(w => w.username).join(", ");
+          }
+          contest.status = "settled";
+          contest.winningTeam = winner.toLowerCase().includes(iplMatch.team1.toLowerCase())
+            ? iplMatch.team1 : iplMatch.team2;
+          await contest.save();
+          contestsSettled++;
+        }
+      }
+    }
+
+    res.json({
+      message: `Done! Settled ${betsSettled} bet(s) and ${contestsSettled} contest(s) for ${matchId}.`,
+      winner,
+      betsSettled,
+      contestsSettled,
+    });
+  } catch (err) {
+    console.error("admin/settle-match error:", err.message);
+    res.status(500).json({ message: err.message });
+  }
+});
 
 // ─── Challenge Routes ─────────────────────────────────────────────────────────
 app.post("/challenge/create", async (req, res) => {
@@ -529,11 +620,9 @@ app.post("/challenge/accept", async (req, res) => {
     if (!opponentTeam)                   return res.status(400).json({ message: "Please pick a team" });
     if (opponentTeam === challenge.challengerTeam) return res.status(400).json({ message: "Pick a different team!" });
 
-    // For private challenges, opponent is null — use username from body
     const acceptingUser = username || challenge.opponent;
     if (!acceptingUser) return res.status(400).json({ message: "No opponent specified" });
 
-    // For private challenges, verify the acceptor is actually invited
     if (challenge.visibility === "private" && !challenge.invitedPlayers?.includes(acceptingUser)) {
       return res.status(403).json({ message: "You are not invited to this challenge" });
     }
@@ -545,7 +634,7 @@ app.post("/challenge/accept", async (req, res) => {
     opponentUser.points -= challenge.wager;
     await opponentUser.save();
 
-    challenge.opponent = acceptingUser;   // set opponent for private challenges
+    challenge.opponent = acceptingUser;
     challenge.opponentTeam = opponentTeam;
     challenge.status = "active";
     await challenge.save();
@@ -661,14 +750,12 @@ app.post("/contest/create", async (req, res) => {
   }
 });
 
-// ── UPDATED: returns ALL open/locked contests (public + private) ──
 app.get("/contests", async (req, res) => {
   try {
     const contests = await Contest
       .find({ status: { $in: ["open", "locked"] } })
       .sort({ createdAt: -1 })
       .limit(50)
-      // Strip password from response so clients never see it
       .select("-password");
     res.json({ contests });
   } catch (err) {
@@ -690,14 +777,12 @@ app.get("/contests/:username", async (req, res) => {
   }
 });
 
-// ── UPDATED: password check for private contests ──
 app.post("/contest/join", async (req, res) => {
   try {
     const { contestId, username, team, password } = req.body;
     if (!contestId || !username || !team)
       return res.status(400).json({ message: "Missing fields" });
 
-    // Fetch WITH password for verification
     const contest = await Contest.findById(contestId);
     if (!contest)                       return res.status(404).json({ message: "Contest not found" });
     if (contest.status !== "open")      return res.status(400).json({ message: "Contest is not open" });
@@ -706,7 +791,6 @@ app.post("/contest/join", async (req, res) => {
     if (contest.participants.find(p => p.username === username))
       return res.status(400).json({ message: "You already joined this contest" });
 
-    // ── Password check for private contests ──
     if (contest.visibility === "private") {
       if (!password) return res.status(403).json({ message: "This contest requires a password" });
       if (password !== contest.password) return res.status(403).json({ message: "Wrong password — please try again" });
