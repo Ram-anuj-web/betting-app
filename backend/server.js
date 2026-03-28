@@ -323,7 +323,21 @@ async function checkAndSettleBets() {
     console.error("checkAndSettleBets error:", err.message);
   }
 }
-setInterval(checkAndSettleBets, 5 * 60 * 1000);
+// ─── Smart scheduling — only run during match hours (IST 15:00–23:59) ────────
+function isMatchHours() {
+  const now = new Date();
+  const istHour = new Date(now.getTime() + (5.5 * 60 * 60 * 1000)).getUTCHours();
+  return istHour >= 15 && istHour <= 23;
+}
+
+setInterval(() => {
+  if (isMatchHours()) {
+    console.log("Match hours active — checking bets...");
+    checkAndSettleBets();
+  } else {
+    console.log("Outside match hours — skipping bet check.");
+  }
+}, 15 * 60 * 1000); // every 15 mins;
 
 // ─── Challenge Routes ─────────────────────────────────────────────────────────
 app.post("/challenge/create", async (req, res) => {
