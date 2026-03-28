@@ -38,7 +38,6 @@ const challengeSchema = new mongoose.Schema({
   sport: String,
   matchId: String,
   matchLabel: String,
-  // ✅ FIX: store the two actual teams on the challenge so opponent sees correct options
   team1: { type: String, default: null },
   team2: { type: String, default: null },
   challengerTeam: String,
@@ -49,14 +48,13 @@ const challengeSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 
-// ─── Contest Schema (group, 2–12 players) ────────────────────────────────────
 const contestSchema = new mongoose.Schema({
-  name: { type: String, required: true },           // Contest title
+  name: { type: String, required: true },
   createdBy: { type: String, required: true },
   sport: { type: String, required: true },
   matchId: { type: String, default: "manual" },
   matchLabel: { type: String, required: true },
-  team1: { type: String, default: null },           // actual teams for the match
+  team1: { type: String, default: null },
   team2: { type: String, default: null },
   entryFee: { type: Number, required: true },
   maxPlayers: { type: Number, default: 10, min: 2, max: 12 },
@@ -68,7 +66,7 @@ const contestSchema = new mongoose.Schema({
     },
   ],
   status: { type: String, enum: ["open", "locked", "settled", "cancelled"], default: "open" },
-  winner: { type: String, default: null },          // username of winner, or "draw"
+  winner: { type: String, default: null },
   winningTeam: { type: String, default: null },
   createdAt: { type: Date, default: Date.now },
 });
@@ -246,28 +244,79 @@ async function checkAndSettleBets() {
   try {
     const pendingBets = await Bet.find({ status: "pending" });
     if (pendingBets.length === 0) return;
+
     const matchIds = [...new Set(pendingBets.map(b => b.matchId))];
+
     for (const matchId of matchIds) {
-      if (matchId.startsWith("ipl-")) continue;
-      try {
-        const res = await fetch(`https://api.cricapi.com/v1/match_info?apikey=${CRICKET_API_KEY}&id=${matchId}`);
-        const data = await res.json();
-        if (!data.data || !data.data.matchEnded) continue;
-        const winner = data.data.matchWinner;
-        if (!winner) continue;
-        const matchBets = pendingBets.filter(b => b.matchId === matchId);
-        for (const bet of matchBets) {
-          const user = await User.findOne({ name: bet.username });
-          if (!user) continue;
-          const won = winner.toLowerCase().includes(bet.team.toLowerCase());
-          if (won) user.points += bet.amount * 2;
-          user.lockedPoints = Math.max(0, (user.lockedPoints || 0) - bet.amount);
-          await user.save();
-          bet.status = won ? "won" : "lost";
-          await bet.save();
+      if (matchId.startsWith("ipl-")) {
+        // ── Settle IPL bets using hardcoded schedule + Cricket API ──
+        const iplId = parseInt(matchId.replace("ipl-", ""));
+        const iplMatch = IPL_MATCHES.find(m => m.id === iplId);
+        if (!iplMatch) continue;
+
+        const matchDate = new Date(`${iplMatch.date}T${iplMatch.time}:00+05:30`);
+        const endTime = new Date(matchDate.getTime() + 4 * 60 * 60 * 1000);
+        if (new Date() < endTime) continue; // match not over yet
+
+        try {
+          const res = await fetch(
+            `https://api.cricapi.com/v1/currentMatches?apikey=${CRICKET_API_KEY}&offset=0`
+          );
+          const data = await res.json();
+          if (!data.data) continue;
+
+          // Find the match by team names
+          const apiMatch = data.data.find(m =>
+            m.matchEnded &&
+            m.teams &&
+            m.teams.some(t => t.includes(iplMatch.team1)) &&
+            m.teams.some(t => t.includes(iplMatch.team2))
+          );
+
+          if (!apiMatch || !apiMatch.matchWinner) continue;
+
+          const winner = apiMatch.matchWinner;
+          const matchBets = pendingBets.filter(b => b.matchId === matchId);
+
+          for (const bet of matchBets) {
+            const user = await User.findOne({ name: bet.username });
+            if (!user) continue;
+            const won = winner.toLowerCase().includes(bet.team.toLowerCase());
+            if (won) user.points += bet.amount * 2;
+            user.lockedPoints = Math.max(0, (user.lockedPoints || 0) - bet.amount);
+            await user.save();
+            bet.status = won ? "won" : "lost";
+            await bet.save();
+          }
+        } catch (err) {
+          console.error(`Error settling IPL match ${matchId}:`, err.message);
         }
-      } catch (err) {
-        console.error(`Error settling match ${matchId}:`, err.message);
+
+      } else {
+        // ── Settle non-IPL bets via direct match ID ──
+        try {
+          const res = await fetch(
+            `https://api.cricapi.com/v1/match_info?apikey=${CRICKET_API_KEY}&id=${matchId}`
+          );
+          const data = await res.json();
+          if (!data.data || !data.data.matchEnded) continue;
+          const winner = data.data.matchWinner;
+          if (!winner) continue;
+
+          const matchBets = pendingBets.filter(b => b.matchId === matchId);
+          for (const bet of matchBets) {
+            const user = await User.findOne({ name: bet.username });
+            if (!user) continue;
+            const won = winner.toLowerCase().includes(bet.team.toLowerCase());
+            if (won) user.points += bet.amount * 2;
+            user.lockedPoints = Math.max(0, (user.lockedPoints || 0) - bet.amount);
+            await user.save();
+            bet.status = won ? "won" : "lost";
+            await bet.save();
+          }
+        } catch (err) {
+          console.error(`Error settling match ${matchId}:`, err.message);
+        }
       }
     }
   } catch (err) {
@@ -292,7 +341,6 @@ app.post("/challenge/create", async (req, res) => {
       return res.status(400).json({ message: "Not enough points to wager" });
     challengerUser.points -= wager;
     await challengerUser.save();
-    // ✅ FIX: save team1 & team2 so opponent sees the correct team options
     const challenge = new Challenge({
       challenger, opponent, sport,
       matchId: matchId || "manual",
@@ -387,8 +435,6 @@ app.get("/challenges/:username", async (req, res) => {
 });
 
 // ─── Contest Routes ───────────────────────────────────────────────────────────
-
-// Create a contest
 app.post("/contest/create", async (req, res) => {
   try {
     const { createdBy, name, sport, matchId, matchLabel, team1, team2, entryFee, maxPlayers, myTeam } = req.body;
@@ -424,7 +470,6 @@ app.post("/contest/create", async (req, res) => {
   }
 });
 
-// Get all open contests (browse)
 app.get("/contests", async (req, res) => {
   try {
     const contests = await Contest.find({ status: "open" }).sort({ createdAt: -1 }).limit(50);
@@ -434,7 +479,6 @@ app.get("/contests", async (req, res) => {
   }
 });
 
-// Get contests for a user (joined or created)
 app.get("/contests/:username", async (req, res) => {
   try {
     const contests = await Contest.find({
@@ -449,7 +493,6 @@ app.get("/contests/:username", async (req, res) => {
   }
 });
 
-// Join a contest
 app.post("/contest/join", async (req, res) => {
   try {
     const { contestId, username, team } = req.body;
@@ -472,7 +515,6 @@ app.post("/contest/join", async (req, res) => {
     await user.save();
 
     contest.participants.push({ username, team });
-    // Lock contest if full
     if (contest.participants.length >= contest.maxPlayers) contest.status = "locked";
     await contest.save();
 
@@ -483,7 +525,6 @@ app.post("/contest/join", async (req, res) => {
   }
 });
 
-// Settle a contest (creator picks winner team)
 app.post("/contest/settle", async (req, res) => {
   try {
     const { contestId, winningTeam, settledBy } = req.body;
@@ -496,7 +537,6 @@ app.post("/contest/settle", async (req, res) => {
     const totalPot = contest.entryFee * contest.participants.length;
 
     if (winners.length === 0) {
-      // No one picked the right team — refund everyone
       for (const p of contest.participants) {
         const u = await User.findOne({ name: p.username });
         if (u) { u.points += contest.entryFee; await u.save(); }
@@ -508,11 +548,12 @@ app.post("/contest/settle", async (req, res) => {
       return res.json({ message: "No winners — everyone refunded.", contest });
     }
 
-    // Split pot equally among winners
+    // ── Split pot equally among winners with rounding fix ──
     const prize = Math.floor(totalPot / winners.length);
-    for (const p of winners) {
-      const u = await User.findOne({ name: p.username });
-      if (u) { u.points += prize; await u.save(); }
+    const remainder = totalPot - prize * winners.length;
+    for (let i = 0; i < winners.length; i++) {
+      const u = await User.findOne({ name: winners[i].username });
+      if (u) { u.points += prize + (i === 0 ? remainder : 0); await u.save(); }
     }
 
     contest.status = "settled";
@@ -533,7 +574,6 @@ app.post("/contest/settle", async (req, res) => {
   }
 });
 
-// Cancel a contest (creator only, refund all)
 app.post("/contest/cancel", async (req, res) => {
   try {
     const { contestId, cancelledBy } = req.body;
@@ -566,14 +606,13 @@ app.get("/leaderboard", async (req, res) => {
 });
 
 // ─── Start ────────────────────────────────────────────────────────────────────
-// --- Start ---
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   try {
-  checkAndSettleBets();
-} catch (err) {
-  console.log("Error in checkAndSettleBets:", err);
-}
+    checkAndSettleBets();
+  } catch (err) {
+    console.log("Error in checkAndSettleBets:", err);
+  }
 });
