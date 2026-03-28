@@ -891,6 +891,107 @@ app.get("/leaderboard", async (req, res) => {
   }
 });
 
+// ─── Admin: Fix wrongly settled bets & contests ───────────────────────────────
+// Use when bets were marked lost but team actually won
+// POST /admin/fix-bet { matchId: "ipl-1", winner: "RCB" }
+app.post("/admin/fix-bet", async (req, res) => {
+  try {
+    const { matchId, winner } = req.body;
+    if (!matchId || !winner)
+      return res.status(400).json({ message: "matchId and winner are required" });
+
+    const bets = await Bet.find({ matchId });
+    let fixed = 0;
+
+    for (const bet of bets) {
+      const user = await User.findOne({ name: bet.username });
+      if (!user) continue;
+      const won = winner.toLowerCase().includes(bet.team.toLowerCase());
+
+      if (bet.status === "lost" && won) {
+        // They should have won — refund the loss and give double
+        user.points += bet.amount * 2;
+        user.lockedPoints = Math.max(0, user.lockedPoints - bet.amount);
+        await user.save();
+        bet.status = "won";
+        await bet.save();
+        fixed++;
+        console.log(`Fixed bet for ${bet.username}: ${bet.team} won, awarded ${bet.amount * 2} pts`);
+      } else if (bet.status === "won" && !won) {
+        // They should have lost — claw back the winnings
+        user.points = Math.max(0, user.points - bet.amount * 2);
+        await user.save();
+        bet.status = "lost";
+        await bet.save();
+        fixed++;
+        console.log(`Fixed bet for ${bet.username}: ${bet.team} lost, clawed back pts`);
+      }
+    }
+
+    // Also fix contests
+    let contestsFixed = 0;
+    if (matchId.startsWith("ipl-")) {
+      const iplId = parseInt(matchId.replace("ipl-", ""));
+      const iplMatch = IPL_MATCHES.find(m => m.id === iplId);
+      if (iplMatch) {
+        const settledContests = await Contest.find({
+          status: "settled",
+          team1: iplMatch.team1,
+          team2: iplMatch.team2,
+        });
+        for (const contest of settledContests) {
+          const correctWinningTeam = winner.toLowerCase().includes(iplMatch.team1.toLowerCase())
+            ? iplMatch.team1 : iplMatch.team2;
+          if (contest.winningTeam === correctWinningTeam) continue; // already correct
+
+          // Wrong team was declared winner — re-settle
+          const wrongWinners = contest.participants.filter(p => p.team === contest.winningTeam);
+          const correctWinners = contest.participants.filter(p => p.team === correctWinningTeam);
+          const totalPot = contest.entryFee * contest.participants.length;
+
+          // Claw back from wrong winners
+          for (const p of wrongWinners) {
+            const u = await User.findOne({ name: p.username });
+            if (u) {
+              const prize = Math.floor(totalPot / wrongWinners.length);
+              u.points = Math.max(0, u.points - prize);
+              await u.save();
+            }
+          }
+
+          // Award correct winners
+          if (correctWinners.length === 0) {
+            for (const p of contest.participants) {
+              const u = await User.findOne({ name: p.username });
+              if (u) { u.points += contest.entryFee; await u.save(); }
+            }
+            contest.winner = "refund";
+          } else {
+            const prize = Math.floor(totalPot / correctWinners.length);
+            const remainder = totalPot - prize * correctWinners.length;
+            for (let i = 0; i < correctWinners.length; i++) {
+              const u = await User.findOne({ name: correctWinners[i].username });
+              if (u) { u.points += prize + (i === 0 ? remainder : 0); await u.save(); }
+            }
+            contest.winner = correctWinners.map(w => w.username).join(", ");
+          }
+          contest.winningTeam = correctWinningTeam;
+          await contest.save();
+          contestsFixed++;
+        }
+      }
+    }
+
+    res.json({
+      message: `Fixed ${fixed} bet(s) and ${contestsFixed} contest(s) for ${matchId}.`,
+      winner, fixed, contestsFixed,
+    });
+  } catch (err) {
+    console.error("admin/fix-bet error:", err.message);
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // ─── Start ────────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
 
