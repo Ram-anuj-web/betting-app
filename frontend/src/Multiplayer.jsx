@@ -166,6 +166,12 @@ const S = {
     padding: "8px 16px", borderRadius: 8, border: "0.5px solid #d3d1c7",
     background: "transparent", color: "#444441", cursor: "pointer", fontSize: 13,
   },
+  // ── NEW: disabled button style for locked cancel ──
+  btnDisabled: {
+    padding: "9px 20px", borderRadius: 8, border: "0.5px solid #d3d1c7",
+    background: "#F1EFE8", color: "#b0ada4",
+    cursor: "not-allowed", fontSize: 14, fontWeight: 500,
+  },
   row: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" },
   flash: (type) => ({
     padding: "10px 16px", borderRadius: 8, marginBottom: 14, fontSize: 13,
@@ -222,6 +228,17 @@ const S = {
   }),
   pointsRow: {
     display: "flex", gap: 8, marginBottom: 14,
+  },
+  // ── NEW: auto-settle notice box ──
+  autoSettleNotice: {
+    marginTop: 12, fontSize: 12, color: "#888780",
+    padding: "8px 12px", borderRadius: 8, background: "#F8F7F3",
+    border: "0.5px solid #e8e6dc", display: "flex", alignItems: "center", gap: 6,
+  },
+  // ── NEW: match started warning ──
+  matchStartedWarn: {
+    fontSize: 12, color: "#BA7517", marginTop: 6,
+    display: "flex", alignItems: "center", gap: 5,
   },
 };
 
@@ -282,8 +299,6 @@ export default function Multiplayer({ username, points, setPoints }) {
   const [wager, setWager]             = useState("");
   const [acceptingId, setAcceptingId] = useState(null);
   const [acceptTeam, setAcceptTeam]   = useState(null);
-  const [settlingId, setSettlingId]   = useState(null);
-  const [winningTeam, setWinningTeam] = useState("");
 
   const [contests, setContests]               = useState([]);
   const [openContests, setOpenContests]       = useState([]);
@@ -434,27 +449,6 @@ export default function Multiplayer({ username, points, setPoints }) {
     setLoading(false);
   }
 
-  async function handleSettle(challengeId) {
-    if (!winningTeam) return flash("error", "Enter the winning team name");
-    setLoading(true);
-    try {
-      const res = await fetch(`${API}/challenge/settle`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ challengeId, winningTeam }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        if (data.challenge.challenger === username) setPoints(data.challengerPoints);
-        if (data.challenge.opponent === username)   setPoints(data.opponentPoints);
-        flash("success", data.message);
-        setSettlingId(null); setWinningTeam("");
-        fetchChallenges();
-      } else { flash("error", data.message); }
-    } catch { flash("error", "Can't connect to server"); }
-    setLoading(false);
-  }
-
   async function handleCreateContest() {
     if (!contestName.trim()) return flash("error", "Enter a contest name");
     if (!cSport)             return flash("error", "Pick a sport");
@@ -578,6 +572,7 @@ export default function Multiplayer({ username, points, setPoints }) {
 
       {/* ════════════════════════════════════════════════════
           CHALLENGE — LIST VIEW
+          • No manual Settle button — auto-settle via Cricket API
       ════════════════════════════════════════════════════ */}
       {view === "list" && (
         <div>
@@ -621,6 +616,13 @@ export default function Multiplayer({ username, points, setPoints }) {
                   }
                 </div>
 
+                {/* ── CHANGED: replaced Settle Result button with auto-settle notice ── */}
+                {c.status === "active" && (
+                  <div style={S.autoSettleNotice}>
+                    ⏳ Auto-settling after match ends via Cricket API
+                  </div>
+                )}
+
                 {c.status === "settled" && (
                   <div style={{
                     fontSize: 14, fontWeight: 600, marginTop: 6, padding: "10px 14px", borderRadius: 8,
@@ -634,32 +636,6 @@ export default function Multiplayer({ username, points, setPoints }) {
                       : `😢 ${c.winner} won · You lost ${c.wager} pts`}
                   </div>
                 )}
-
-                <div style={{ ...S.row, marginTop: 12 }}>
-                  {c.status === "active" && isChallenger && (
-                    settlingId === c._id ? (
-                      <div style={{ width: "100%" }}>
-                        <div style={S.label}>Select the winning team</div>
-                        <div style={S.pillRow}>
-                          {getChallengeTeams(c).map(t => (
-                            <button key={t} style={S.pill(winningTeam === t)} onClick={() => setWinningTeam(t)}>{t}</button>
-                          ))}
-                        </div>
-                        <div style={S.row}>
-                          <button style={S.btn("#1D9E75")} onClick={() => handleSettle(c._id)} disabled={loading}>Confirm</button>
-                          <button style={S.btnGhost} onClick={() => { setSettlingId(null); setWinningTeam(""); }}>Cancel</button>
-                        </div>
-                      </div>
-                    ) : (
-                      <button style={S.btn("#1D9E75")} onClick={() => { setSettlingId(c._id); setWinningTeam(""); }}>
-                        Settle Result
-                      </button>
-                    )
-                  )}
-                  {c.status === "active" && !isChallenger && (
-                    <span style={{ fontSize: 13, color: "#888780" }}>Waiting for match result...</span>
-                  )}
-                </div>
               </div>
             );
           })}
@@ -821,6 +797,8 @@ export default function Multiplayer({ username, points, setPoints }) {
 
       {/* ════════════════════════════════════════════════════
           CONTESTS — LIST / BROWSE VIEW
+          • Auto-settle notice shown for open/locked contests
+          • Cancel button disabled when status === "locked"
       ════════════════════════════════════════════════════ */}
       {view === "contests" && (
         <div>
@@ -831,11 +809,15 @@ export default function Multiplayer({ username, points, setPoints }) {
             </div>
           )}
           {contests.map(c => {
-            const myEntry  = c.participants.find(p => p.username === username);
-            const totalPot = c.entryFee * c.participants.length;
-            const maxPrize = totalPot;
-            const pct      = Math.round((c.participants.length / c.maxPlayers) * 100);
+            const myEntry   = c.participants.find(p => p.username === username);
+            const totalPot  = c.entryFee * c.participants.length;
+            const maxPrize  = totalPot;
+            const pct       = Math.round((c.participants.length / c.maxPlayers) * 100);
             const isCreator = c.createdBy === username;
+
+            // ── CHANGED: match is considered started when status is "locked"
+            const matchStarted = c.status === "locked";
+
             return (
               <div key={c._id} style={S.card}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
@@ -875,23 +857,30 @@ export default function Multiplayer({ username, points, setPoints }) {
                   </div>
                 )}
 
-                {/* ── Auto-settle notice instead of manual button ── */}
+                {/* ── Auto-settle notice for open/locked contests ── */}
                 {(c.status === "open" || c.status === "locked") && (
-                  <div style={{
-                    marginTop: 12, fontSize: 12, color: "#888780",
-                    padding: "8px 12px", borderRadius: 8, background: "#F8F7F3",
-                    border: "0.5px solid #e8e6dc",
-                  }}>
+                  <div style={S.autoSettleNotice}>
                     ⏳ Auto-settling after match ends via Cricket API
                   </div>
                 )}
 
-                {/* Cancel button still available for creator */}
+                {/* ── CHANGED: Cancel button locked once match starts (status === "locked") ── */}
                 {isCreator && (c.status === "open" || c.status === "locked") && (
                   <div style={{ marginTop: 8 }}>
-                    <button style={S.btn("#E24B4A")} onClick={() => handleCancelContest(c._id)} disabled={loading}>
-                      Cancel Contest
-                    </button>
+                    {matchStarted ? (
+                      <>
+                        <button style={S.btnDisabled} disabled>
+                          🔒 Cancel Contest
+                        </button>
+                        <div style={S.matchStartedWarn}>
+                          ⚠️ Match has started — cancellation is no longer available
+                        </div>
+                      </>
+                    ) : (
+                      <button style={S.btn("#E24B4A")} onClick={() => handleCancelContest(c._id)} disabled={loading}>
+                        Cancel Contest
+                      </button>
+                    )}
                   </div>
                 )}
 
