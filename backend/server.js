@@ -239,6 +239,71 @@ function getMatchesWithStatus() {
 
 app.get("/ipl-matches", (req, res) => res.json({ matches: getMatchesWithStatus() }));
 
+// ─── Ping (keep-alive for Render free tier) ───────────────────────────────────
+app.get("/ping", (req, res) => res.json({ ok: true, time: new Date().toISOString() }));
+
+// ─── Live Scores ──────────────────────────────────────────────────────────────
+// Returns today's IPL matches enriched with live score data from CricAPI.
+// Frontend can call GET /live-scores to display current match status & scores.
+app.get("/live-scores", async (req, res) => {
+  try {
+    const matchesWithStatus = getMatchesWithStatus();
+
+    // Only fetch from CricAPI if there's a live or recently completed match today
+    const today = new Date().toISOString().slice(0, 10);
+    const todayMatches = matchesWithStatus.filter(m => m.date === today);
+
+    if (todayMatches.length === 0) {
+      return res.json({ matches: [], message: "No IPL matches today." });
+    }
+
+    // Fetch current matches from CricAPI
+    const apiRes = await fetch(
+      `https://api.cricapi.com/v1/currentMatches?apikey=${CRICKET_API_KEY}&offset=0`
+    );
+    const apiData = await apiRes.json();
+
+    if (!apiData.data) {
+      // CricAPI returned no data (quota exceeded or error) — fall back to schedule only
+      return res.json({
+        matches: todayMatches,
+        message: "Live data unavailable — showing schedule only.",
+        apiStatus: apiData.status || "unknown",
+      });
+    }
+
+    // Merge CricAPI live data into our IPL schedule
+    const enriched = todayMatches.map(match => {
+      const apiMatch = apiData.data.find(m =>
+        m.teams &&
+        m.teams.some(t => t.toUpperCase().includes(match.team1.toUpperCase())) &&
+        m.teams.some(t => t.toUpperCase().includes(match.team2.toUpperCase()))
+      );
+
+      if (!apiMatch) return { ...match, liveData: null };
+
+      return {
+        ...match,
+        liveData: {
+          matchStarted: apiMatch.matchStarted || false,
+          matchEnded:   apiMatch.matchEnded   || false,
+          matchWinner:  apiMatch.matchWinner  || null,
+          status:       apiMatch.status       || null,
+          // Score arrays from CricAPI — each entry is { r, w, o, inning }
+          score:        apiMatch.score        || [],
+          teams:        apiMatch.teams        || [],
+          dateTimeGMT:  apiMatch.dateTimeGMT  || null,
+        },
+      };
+    });
+
+    res.json({ matches: enriched });
+  } catch (err) {
+    console.error("live-scores error:", err.message);
+    res.status(500).json({ message: "Failed to fetch live scores", error: err.message });
+  }
+});
+
 // ─── Auto-settle bets ─────────────────────────────────────────────────────────
 async function checkAndSettleBets() {
   try {
@@ -249,14 +314,13 @@ async function checkAndSettleBets() {
 
     for (const matchId of matchIds) {
       if (matchId.startsWith("ipl-")) {
-        // ── Settle IPL bets using hardcoded schedule + Cricket API ──
         const iplId = parseInt(matchId.replace("ipl-", ""));
         const iplMatch = IPL_MATCHES.find(m => m.id === iplId);
         if (!iplMatch) continue;
 
         const matchDate = new Date(`${iplMatch.date}T${iplMatch.time}:00+05:30`);
         const endTime = new Date(matchDate.getTime() + 4 * 60 * 60 * 1000);
-        if (new Date() < endTime) continue; // match not over yet
+        if (new Date() < endTime) continue;
 
         try {
           const res = await fetch(
@@ -265,7 +329,6 @@ async function checkAndSettleBets() {
           const data = await res.json();
           if (!data.data) continue;
 
-          // Find the match by team names
           const apiMatch = data.data.find(m =>
             m.matchEnded &&
             m.teams &&
@@ -293,7 +356,6 @@ async function checkAndSettleBets() {
         }
 
       } else {
-        // ── Settle non-IPL bets via direct match ID ──
         try {
           const res = await fetch(
             `https://api.cricapi.com/v1/match_info?apikey=${CRICKET_API_KEY}&id=${matchId}`
@@ -323,8 +385,7 @@ async function checkAndSettleBets() {
     console.error("checkAndSettleBets error:", err.message);
   }
 }
-// ─── Smart scheduling — only run during match hours (IST 15:00–23:59) ────────
-// ─── Smart scheduling — only run during match hours (IST 15:00–23:59) ────────
+
 function isMatchHours() {
   const now = new Date();
   const istHour = new Date(now.getTime() + (5.5 * 60 * 60 * 1000)).getUTCHours();
@@ -345,7 +406,6 @@ async function checkAndSettleContests() {
     for (const contest of openContests) {
       if (!contest.team1 || !contest.team2) continue;
 
-      // Find the IPL match in schedule to check if it's over
       const iplMatch = IPL_MATCHES.find(
         m => m.team1 === contest.team1 && m.team2 === contest.team2
       );
@@ -353,9 +413,8 @@ async function checkAndSettleContests() {
 
       const matchDate = new Date(`${iplMatch.date}T${iplMatch.time}:00+05:30`);
       const endTime   = new Date(matchDate.getTime() + 4 * 60 * 60 * 1000);
-      if (new Date() < endTime) continue; // not over yet
+      if (new Date() < endTime) continue;
 
-      // Find result in Cricket API
       const apiMatch = apiData.data.find(m =>
         m.matchEnded &&
         m.teams &&
@@ -368,7 +427,6 @@ async function checkAndSettleContests() {
         ? contest.team1
         : contest.team2;
 
-      // Settle the contest
       const winners   = contest.participants.filter(p => p.team === winningTeam);
       const totalPot  = contest.entryFee * contest.participants.length;
 
@@ -408,7 +466,7 @@ setInterval(() => {
   } else {
     console.log("Outside match hours — skipping.");
   }
-}, 15 * 60 * 1000);// every 15 mins;
+}, 15 * 60 * 1000);
 
 // ─── Challenge Routes ─────────────────────────────────────────────────────────
 app.post("/challenge/create", async (req, res) => {
@@ -633,7 +691,6 @@ app.post("/contest/settle", async (req, res) => {
       return res.json({ message: "No winners — everyone refunded.", contest });
     }
 
-    // ── Split pot equally among winners with rounding fix ──
     const prize = Math.floor(totalPot / winners.length);
     const remainder = totalPot - prize * winners.length;
     for (let i = 0; i < winners.length; i++) {
@@ -649,9 +706,7 @@ app.post("/contest/settle", async (req, res) => {
     res.json({
       message: `${winners.length} winner(s)! Prize: ${prize} pts each.`,
       winners: winners.map(w => w.username),
-      prize,
-      totalPot,
-      contest,
+      prize, totalPot, contest,
     });
   } catch (err) {
     console.error(err);
