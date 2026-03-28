@@ -522,20 +522,34 @@ app.post("/challenge/create", async (req, res) => {
 
 app.post("/challenge/accept", async (req, res) => {
   try {
-    const { challengeId, opponentTeam } = req.body;
+    const { challengeId, opponentTeam, username } = req.body;
     const challenge = await Challenge.findById(challengeId);
     if (!challenge)                      return res.status(404).json({ message: "Challenge not found" });
     if (challenge.status !== "pending")  return res.status(400).json({ message: "Challenge is no longer pending" });
     if (!opponentTeam)                   return res.status(400).json({ message: "Please pick a team" });
     if (opponentTeam === challenge.challengerTeam) return res.status(400).json({ message: "Pick a different team!" });
-    const opponentUser = await User.findOne({ name: challenge.opponent });
+
+    // For private challenges, opponent is null — use username from body
+    const acceptingUser = username || challenge.opponent;
+    if (!acceptingUser) return res.status(400).json({ message: "No opponent specified" });
+
+    // For private challenges, verify the acceptor is actually invited
+    if (challenge.visibility === "private" && !challenge.invitedPlayers?.includes(acceptingUser)) {
+      return res.status(403).json({ message: "You are not invited to this challenge" });
+    }
+
+    const opponentUser = await User.findOne({ name: acceptingUser });
     if (!opponentUser)                   return res.status(404).json({ message: "Opponent not found" });
     if (opponentUser.points < challenge.wager) return res.status(400).json({ message: "Not enough points" });
+
     opponentUser.points -= challenge.wager;
     await opponentUser.save();
+
+    challenge.opponent = acceptingUser;   // set opponent for private challenges
     challenge.opponentTeam = opponentTeam;
     challenge.status = "active";
     await challenge.save();
+
     res.json({ message: "Challenge accepted!", challenge, opponentPoints: opponentUser.points });
   } catch (err) {
     console.error(err);

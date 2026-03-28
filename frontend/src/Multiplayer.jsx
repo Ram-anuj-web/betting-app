@@ -658,7 +658,12 @@ export default function Multiplayer({ username, points, setPoints }) {
     return () => clearInterval(iv);
   }, [fetchChallenges, fetchMyContests, fetchOpenContests]);
 
-  const pendingIncoming = challenges.filter(c => c.status === "pending" && c.opponent === username);
+  const pendingIncoming = challenges.filter(
+    c => c.status === "pending" && (
+      c.opponent === username ||
+      (c.visibility === "private" && c.invitedPlayers?.includes(username))
+    )
+  );
   const myChallenges    = challenges.filter(c => c.status !== "cancelled");
 
   function flash(type, msg) {
@@ -744,7 +749,7 @@ export default function Multiplayer({ username, points, setPoints }) {
       const res = await fetch(`${API}/challenge/accept`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ challengeId, opponentTeam: acceptTeam }),
+        body: JSON.stringify({ challengeId, opponentTeam: acceptTeam, username }),
       });
       const data = await res.json();
       if (res.ok) {
