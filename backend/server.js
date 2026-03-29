@@ -5,6 +5,8 @@ const cors = require("cors");
 const bcrypt = require("bcryptjs");
 
 const app = express();
+const fantasy11Routes = require('./fantasy11Routes');
+app.use('/fantasy11', fantasy11Routes);
 app.use(cors());
 app.use(express.json());
 
