@@ -1,5 +1,5 @@
 // ============================================================
-//  fantasy11Routes.js  —  add to your Express backend
+//  fantasy11Routes.js  —  fixed version
 //  Usage:  app.use('/fantasy11', require('./fantasy11Routes'))
 // ============================================================
 const express = require("express");
@@ -8,16 +8,16 @@ const mongoose = require("mongoose");
 
 // ── Schema ───────────────────────────────────────────────────────────────
 const Fantasy11TeamSchema = new mongoose.Schema({
-  username:     { type: String, required: true },
-  matchId:      { type: String, required: true },
-  matchLabel:   { type: String },
-  players:      [String],          // array of player names (11 names)
-  captain:      String,
-  viceCaptain:  String,
-  locked:       { type: Boolean, default: false },
-  fantasyPoints:{ type: Number,  default: null },
-  createdAt:    { type: Date,    default: Date.now },
-  updatedAt:    { type: Date,    default: Date.now },
+  username:      { type: String, required: true },
+  matchId:       { type: String, required: true },
+  matchLabel:    { type: String },
+  players:       [String],
+  captain:       String,
+  viceCaptain:   String,
+  locked:        { type: Boolean, default: false },
+  fantasyPoints: { type: Number,  default: null },
+  createdAt:     { type: Date,    default: Date.now },
+  updatedAt:     { type: Date,    default: Date.now },
 });
 
 Fantasy11TeamSchema.index({ username: 1, matchId: 1 }, { unique: true });
@@ -31,7 +31,7 @@ router.post("/team", async (req, res) => {
     const { username, matchId, matchLabel, players, captain, viceCaptain } = req.body;
 
     if (!username || !matchId || !players || players.length !== 11) {
-      return res.status(400).json({ message: "Invalid team data." });
+      return res.status(400).json({ message: "Invalid team data — need exactly 11 players." });
     }
     if (!captain || !viceCaptain) {
       return res.status(400).json({ message: "Captain and vice-captain are required." });
@@ -39,23 +39,55 @@ router.post("/team", async (req, res) => {
     if (!players.includes(captain) || !players.includes(viceCaptain)) {
       return res.status(400).json({ message: "Captain/VC must be in your team." });
     }
+    if (captain === viceCaptain) {
+      return res.status(400).json({ message: "Captain and vice-captain must be different players." });
+    }
 
-    // Prevent edit if already locked
+    // Check if already locked
     const existing = await Fantasy11Team.findOne({ username, matchId });
     if (existing?.locked) {
       return res.status(403).json({ message: "Team is locked — match has started." });
     }
 
-    const team = await Fantasy11Team.findOneAndUpdate(
-      { username, matchId },
-      { username, matchId, matchLabel, players, captain, viceCaptain, updatedAt: new Date() },
-      { upsert: true, new: true }
-    );
+    let team;
+    if (existing) {
+      // Update existing record
+      existing.players     = players;
+      existing.captain     = captain;
+      existing.viceCaptain = viceCaptain;
+      existing.matchLabel  = matchLabel;
+      existing.updatedAt   = new Date();
+      team = await existing.save();
+    } else {
+      // Create new record
+      team = await Fantasy11Team.create({
+        username, matchId, matchLabel, players, captain, viceCaptain,
+      });
+    }
 
     res.json({ success: true, team });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error." });
+    console.error("fantasy11/team POST error:", err);
+    // Handle duplicate key race condition
+    if (err.code === 11000) {
+      try {
+        const team = await Fantasy11Team.findOneAndUpdate(
+          { username: req.body.username, matchId: req.body.matchId },
+          {
+            players: req.body.players,
+            captain: req.body.captain,
+            viceCaptain: req.body.viceCaptain,
+            matchLabel: req.body.matchLabel,
+            updatedAt: new Date(),
+          },
+          { new: true }
+        );
+        return res.json({ success: true, team });
+      } catch (e) {
+        return res.status(500).json({ message: "Failed to save team. Please try again." });
+      }
+    }
+    res.status(500).json({ message: "Server error — please try again." });
   }
 });
 
@@ -66,6 +98,7 @@ router.get("/team/:username/:matchId", async (req, res) => {
     const team = await Fantasy11Team.findOne({ username, matchId });
     res.json({ team: team || null });
   } catch (err) {
+    console.error("fantasy11/team GET error:", err);
     res.status(500).json({ message: "Server error." });
   }
 });
@@ -83,8 +116,21 @@ router.get("/leaderboard/:matchId", async (req, res) => {
   }
 });
 
-// ── POST /fantasy11/lock/:matchId  — admin: lock all teams for a match ─
-//    Call this when a match goes LIVE (from your match scheduler or admin)
+// ── GET /fantasy11/both-teams/:matchId  — get both players' teams for a challenge/contest
+//    Used to settle Fantasy11 challenges by comparing fantasy points
+router.get("/both-teams/:matchId", async (req, res) => {
+  try {
+    const teams = await Fantasy11Team.find(
+      { matchId: req.params.matchId },
+      { username: 1, fantasyPoints: 1, captain: 1, viceCaptain: 1, players: 1, _id: 0 }
+    );
+    res.json({ teams });
+  } catch (err) {
+    res.status(500).json({ message: "Server error." });
+  }
+});
+
+// ── POST /fantasy11/lock/:matchId  — lock all teams for a match ─────────
 router.post("/lock/:matchId", async (req, res) => {
   try {
     const result = await Fantasy11Team.updateMany(
@@ -97,12 +143,11 @@ router.post("/lock/:matchId", async (req, res) => {
   }
 });
 
-// ── POST /fantasy11/settle/:matchId  — admin: award fantasy points ──────
+// ── POST /fantasy11/settle/:matchId  — award fantasy points ─────────────
 //    Body: { scores: [{ username, fantasyPoints }] }
-//    Calculate scores externally (your scorecard logic) and call this
 router.post("/settle/:matchId", async (req, res) => {
   try {
-    const { scores } = req.body; // [{ username, fantasyPoints }]
+    const { scores } = req.body;
     if (!Array.isArray(scores)) {
       return res.status(400).json({ message: "scores array required." });
     }
@@ -120,17 +165,3 @@ router.post("/settle/:matchId", async (req, res) => {
 });
 
 module.exports = router;
-
-// ============================================================
-//  HOW TO INTEGRATE IN YOUR app.js / server.js:
-//
-//  const fantasy11Routes = require('./fantasy11Routes');
-//  app.use('/fantasy11', fantasy11Routes);
-//
-//  That's it! The following endpoints are now live:
-//   POST   /fantasy11/team                  → save/update team
-//   GET    /fantasy11/team/:user/:matchId   → get saved team
-//   GET    /fantasy11/leaderboard/:matchId  → ranked leaderboard
-//   POST   /fantasy11/lock/:matchId         → lock all teams (on match start)
-//   POST   /fantasy11/settle/:matchId       → award fantasy points
-// ============================================================
