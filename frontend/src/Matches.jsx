@@ -28,11 +28,54 @@ const TEAM_LOGOS = {
   DC:   "https://scores.iplt20.com/ipl/teamlogos/DC.png",
 };
 
+// Determine favourite vs underdog label from odds
+function getOddsLabel(odds, team1, team2) {
+  if (!odds) return { [team1]: null, [team2]: null };
+  const o1 = odds[team1];
+  const o2 = odds[team2];
+  if (!o1 || !o2) return { [team1]: null, [team2]: null };
+  return {
+    [team1]: o1 < o2 ? "favourite" : "underdog",
+    [team2]: o2 < o1 ? "favourite" : "underdog",
+  };
+}
+
+// Colour-coded odds chip
+function OddsChip({ team, odds, role }) {
+  if (!odds) return null;
+  const isFav = role === "favourite";
+  return (
+    <div style={{
+      display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
+      marginTop: 6,
+    }}>
+      <span style={{
+        fontSize: 15, fontWeight: 700, fontFamily: "monospace",
+        color: isFav ? "#0F6E56" : "#A32D2D",
+        background: isFav ? "#E1F5EE" : "#FCEBEB",
+        border: `1px solid ${isFav ? "#5DCAA5" : "#F09595"}`,
+        borderRadius: 6, padding: "2px 10px",
+        letterSpacing: "0.04em",
+      }}>
+        {odds}x
+      </span>
+      <span style={{
+        fontSize: 9, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em",
+        color: isFav ? "#0F6E56" : "#A32D2D",
+      }}>
+        {isFav ? "⭐ Fav" : "💎 Dog"}
+      </span>
+    </div>
+  );
+}
+
 export default function Matches({ onBetOnMatch }) {
-  const [matches, setMatches] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState("");
-  const [filter, setFilter]   = useState("all");
+  const [matches, setMatches]   = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState("");
+  const [filter, setFilter]     = useState("all");
+  const [oddsMap, setOddsMap]   = useState({}); // { "ipl-2": { MI: 1.8, KKR: 2.1 }, ... }
+  const [oddsLoading, setOddsLoading] = useState(false);
 
   useEffect(() => { fetchMatches(); }, []);
 
@@ -45,11 +88,26 @@ export default function Matches({ onBetOnMatch }) {
       const data = await res.json();
       const list = Array.isArray(data) ? data : data.matches || [];
       setMatches(list);
+      // Fetch bulk odds after matches load
+      fetchBulkOdds();
     } catch (err) {
       console.error("fetchMatches error:", err);
       setError("Can't connect to server.");
     }
     setLoading(false);
+  }
+
+  async function fetchBulkOdds() {
+    setOddsLoading(true);
+    try {
+      const res = await fetch(`${API}/odds-bulk`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setOddsMap(data.odds || {});
+    } catch (err) {
+      console.error("Odds fetch error:", err);
+    }
+    setOddsLoading(false);
   }
 
   function formatDate(dateStr, timeStr) {
@@ -95,7 +153,10 @@ export default function Matches({ onBetOnMatch }) {
       };
     },
     matchNum: { fontSize: 11, color: "#b4b2a9" },
-    teamsRow: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 },
+    teamsRow: {
+      display: "flex", alignItems: "flex-start", justifyContent: "space-between",
+      gap: 10, marginBottom: 12,
+    },
     teamBox: (side) => ({
       flex: 1, display: "flex", flexDirection: "column",
       alignItems: side === "left" ? "flex-start" : "flex-end",
@@ -107,14 +168,32 @@ export default function Matches({ onBetOnMatch }) {
       color: TEAM_COLORS[team]?.bg || "#444441",
       fontWeight: 600, fontSize: 16,
     }),
-    vs: { fontSize: 11, color: "#b4b2a9", fontWeight: 500, padding: "0 8px" },
-    meta: { fontSize: 12, color: "#888780", marginBottom: 12 },
+    vs: { fontSize: 11, color: "#b4b2a9", fontWeight: 500, padding: "0 8px", paddingTop: 10 },
+    meta: { fontSize: 12, color: "#888780", marginBottom: 8 },
+    // Odds bar
+    oddsBar: {
+      display: "flex", alignItems: "center", gap: 0,
+      borderRadius: 8, overflow: "hidden", marginBottom: 12,
+      border: "0.5px solid #e8e6dc", height: 6,
+    },
+    oddsLoadingChip: {
+      fontSize: 11, color: "#b4b2a9", marginBottom: 10,
+      display: "flex", alignItems: "center", gap: 5,
+    },
+    oddsRow: {
+      display: "flex", justifyContent: "space-between",
+      alignItems: "center", marginBottom: 12,
+      padding: "8px 12px", borderRadius: 8,
+      background: "#F8F7F3", border: "0.5px solid #e8e6dc",
+    },
+    payout: {
+      fontSize: 11, color: "#888780", textAlign: "center",
+    },
     betBtn: {
       width: "100%", padding: "10px", borderRadius: 8, border: "none",
       background: "#7F77DD", color: "#fff", cursor: "pointer",
       fontSize: 14, fontWeight: 500,
     },
-    // ── NEW: live-locked button style ──────────────────────────────────────────
     liveLockBtn: {
       width: "100%", padding: "10px", borderRadius: 8,
       border: "1px solid #F09595",
@@ -122,7 +201,6 @@ export default function Matches({ onBetOnMatch }) {
       fontSize: 13, fontWeight: 500, cursor: "not-allowed",
       display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
     },
-    // ── pulsing live dot inside the button ────────────────────────────────────
     liveDotBtn: {
       width: 8, height: 8, borderRadius: "50%",
       background: "#E24B4A", display: "inline-block",
@@ -160,6 +238,7 @@ export default function Matches({ onBetOnMatch }) {
       </div>
       <div style={s.sub}>
         {matches.length} matches · {liveCount > 0 ? `${liveCount} live now` : "IPL 2026 season"}
+        {oddsLoading && <span style={{ marginLeft: 8, color: "#7F77DD" }}>· fetching odds...</span>}
       </div>
 
       {/* Filter tabs */}
@@ -181,9 +260,7 @@ export default function Matches({ onBetOnMatch }) {
         <div style={{ ...s.empty, background: "#FCEBEB", color: "#A32D2D" }}>
           {error}
           <br />
-          <button onClick={fetchMatches} style={{ marginTop: 12, ...s.refreshBtn }}>
-            Try Again
-          </button>
+          <button onClick={fetchMatches} style={{ marginTop: 12, ...s.refreshBtn }}>Try Again</button>
         </div>
       )}
 
@@ -191,71 +268,136 @@ export default function Matches({ onBetOnMatch }) {
         <div style={s.empty}>No {filter} matches found.</div>
       )}
 
-      {!loading && !error && filtered.map(match => (
-        <div key={match.id} style={s.card(match.status)}>
-          <div style={s.topRow}>
-            <span style={s.badge(match.status)}>
-              {match.status === "live" && (
-                <span style={{ ...s.liveDot, animation: "blink 1s infinite" }} />
-              )}
-              {match.status}
-            </span>
-            <span style={s.matchNum}>Match {match.id}</span>
-          </div>
+      {!loading && !error && filtered.map(match => {
+        const matchKey = `ipl-${match.id}`;
+        const odds = oddsMap[matchKey] || null;
+        const roles = getOddsLabel(odds, match.team1, match.team2);
 
-          <div style={s.teamsRow}>
-            <div style={s.teamBox("left")}>
-              <span style={s.teamBadge(match.team1)}>
-                <img
-                  src={TEAM_LOGOS[match.team1]}
-                  alt={match.team1}
-                  style={{ width: 36, height: 36, objectFit: "contain", marginRight: 8 }}
-                  onError={e => { e.target.style.display = "none"; }}
-                />
-                {match.team1}
+        // Probability bar widths from odds (lower odds = higher implied probability)
+        let team1Pct = 50, team2Pct = 50;
+        if (odds && odds[match.team1] && odds[match.team2]) {
+          const p1 = 1 / odds[match.team1];
+          const p2 = 1 / odds[match.team2];
+          const total = p1 + p2;
+          team1Pct = Math.round((p1 / total) * 100);
+          team2Pct = 100 - team1Pct;
+        }
+
+        return (
+          <div key={match.id} style={s.card(match.status)}>
+            <div style={s.topRow}>
+              <span style={s.badge(match.status)}>
+                {match.status === "live" && (
+                  <span style={{ ...s.liveDot, animation: "blink 1s infinite" }} />
+                )}
+                {match.status}
               </span>
+              <span style={s.matchNum}>Match {match.id}</span>
             </div>
-            <span style={s.vs}>VS</span>
-            <div style={s.teamBox("right")}>
-              <span style={s.teamBadge(match.team2)}>
-                {match.team2}
-                <img
-                  src={TEAM_LOGOS[match.team2]}
-                  alt={match.team2}
-                  style={{ width: 36, height: 36, objectFit: "contain", marginLeft: 8 }}
-                  onError={e => { e.target.style.display = "none"; }}
-                />
-              </span>
-            </div>
-          </div>
 
-          <div style={s.meta}>
-            📅 {formatDate(match.date, match.time)} &nbsp;·&nbsp; 📍 {match.venue}
-          </div>
+            {/* Teams row with odds chips */}
+            <div style={s.teamsRow}>
+              <div style={s.teamBox("left")}>
+                <span style={s.teamBadge(match.team1)}>
+                  <img
+                    src={TEAM_LOGOS[match.team1]}
+                    alt={match.team1}
+                    style={{ width: 36, height: 36, objectFit: "contain", marginRight: 8 }}
+                    onError={e => { e.target.style.display = "none"; }}
+                  />
+                  {match.team1}
+                </span>
+                {odds && (
+                  <OddsChip team={match.team1} odds={odds[match.team1]} role={roles[match.team1]} />
+                )}
+              </div>
 
-          {/* ── UPDATED: three-state button ── */}
-          {match.status === "completed" ? (
-            <button style={s.disabledBtn} disabled>Match Completed</button>
-          ) : match.status === "live" ? (
-            <div style={s.liveLockBtn}>
-              <span style={s.liveDotBtn} />
-              Match is Live — Betting Closed
+              <span style={s.vs}>VS</span>
+
+              <div style={s.teamBox("right")}>
+                <span style={s.teamBadge(match.team2)}>
+                  {match.team2}
+                  <img
+                    src={TEAM_LOGOS[match.team2]}
+                    alt={match.team2}
+                    style={{ width: 36, height: 36, objectFit: "contain", marginLeft: 8 }}
+                    onError={e => { e.target.style.display = "none"; }}
+                  />
+                </span>
+                {odds && (
+                  <OddsChip team={match.team2} odds={odds[match.team2]} role={roles[match.team2]} />
+                )}
+              </div>
             </div>
-          ) : (
-            <button
-              style={s.betBtn}
-              onClick={() => onBetOnMatch({
-                matchLabel: `${match.team1} vs ${match.team2}`,
-                teams: [match.team1, match.team2],
-                sport: "cricket",
-                matchId: `ipl-${match.id}`,
-              })}
-            >
-              ⚡ Bet on this match
-            </button>
-          )}
-        </div>
-      ))}
+
+            {/* Win probability bar */}
+            {odds && match.status === "upcoming" && (
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#888780", marginBottom: 3 }}>
+                  <span>{match.team1} {team1Pct}%</span>
+                  <span style={{ color: "#b4b2a9" }}>Win Probability</span>
+                  <span>{team2Pct}% {match.team2}</span>
+                </div>
+                <div style={{ display: "flex", height: 5, borderRadius: 99, overflow: "hidden", background: "#e8e6dc" }}>
+                  <div style={{ width: `${team1Pct}%`, background: TEAM_COLORS[match.team1]?.bg || "#7F77DD", transition: "width 0.5s" }} />
+                  <div style={{ width: `${team2Pct}%`, background: TEAM_COLORS[match.team2]?.bg || "#d3d1c7" }} />
+                </div>
+              </div>
+            )}
+
+            {/* Payout preview for upcoming matches */}
+            {odds && match.status === "upcoming" && (
+              <div style={s.oddsRow}>
+                <div style={s.payout}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: "#444441" }}>Bet 100 → Win</div>
+                  <div style={{ fontSize: 13, color: "#0F6E56", fontWeight: 700 }}>
+                    {Math.floor(100 * odds[match.team1])} pts
+                  </div>
+                  <div style={{ fontSize: 10, color: "#888780" }}>on {match.team1}</div>
+                </div>
+                <div style={{ width: 1, background: "#e8e6dc", alignSelf: "stretch" }} />
+                <div style={{ fontSize: 11, color: "#888780", textAlign: "center", padding: "0 8px" }}>
+                  📊 Live odds<br />from bookmakers
+                </div>
+                <div style={{ width: 1, background: "#e8e6dc", alignSelf: "stretch" }} />
+                <div style={s.payout}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: "#444441" }}>Bet 100 → Win</div>
+                  <div style={{ fontSize: 13, color: "#0F6E56", fontWeight: 700 }}>
+                    {Math.floor(100 * odds[match.team2])} pts
+                  </div>
+                  <div style={{ fontSize: 10, color: "#888780" }}>on {match.team2}</div>
+                </div>
+              </div>
+            )}
+
+            <div style={s.meta}>
+              📅 {formatDate(match.date, match.time)} &nbsp;·&nbsp; 📍 {match.venue}
+            </div>
+
+            {match.status === "completed" ? (
+              <button style={s.disabledBtn} disabled>Match Completed</button>
+            ) : match.status === "live" ? (
+              <div style={s.liveLockBtn}>
+                <span style={s.liveDotBtn} />
+                Match is Live — Betting Closed
+              </div>
+            ) : (
+              <button
+                style={s.betBtn}
+                onClick={() => onBetOnMatch({
+                  matchLabel: `${match.team1} vs ${match.team2}`,
+                  teams: [match.team1, match.team2],
+                  sport: "cricket",
+                  matchId: `ipl-${match.id}`,
+                  odds: odds || null,
+                })}
+              >
+                ⚡ Bet on this match
+              </button>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

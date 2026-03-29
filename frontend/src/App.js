@@ -32,7 +32,7 @@ export default function App() {
   const [error, setError] = useState("");
   const [prefilledMatch, setPrefilledMatch] = useState(null);
 
-  // ── NEW: track live match status for the prefilled match ──
+  // track live match status for the prefilled match
   const [matchStatus, setMatchStatus] = useState(null); // "upcoming" | "live" | "completed"
 
   // ─── Back button support ───────────────────────────────────────────────────
@@ -55,7 +55,7 @@ export default function App() {
     }
   }, [username]);
 
-  // ── NEW: whenever a match is prefilled, fetch its live status from the backend ──
+  // whenever a match is prefilled, fetch its live status from the backend
   useEffect(() => {
     if (!prefilledMatch) { setMatchStatus(null); return; }
 
@@ -64,7 +64,6 @@ export default function App() {
         const res = await fetch(`${API}/ipl-matches`);
         const data = await res.json();
         const list = Array.isArray(data) ? data : data.matches || [];
-        // prefilledMatch.matchId is like "ipl-1" — extract the number
         const idNum = parseInt(prefilledMatch.matchId.replace("ipl-", ""));
         const found = list.find(m => m.id === idNum);
         if (found) setMatchStatus(found.status);
@@ -74,7 +73,6 @@ export default function App() {
     }
 
     checkMatchStatus();
-    // Poll every 60 seconds in case the match starts while user is on this screen
     const interval = setInterval(checkMatchStatus, 60000);
     return () => clearInterval(interval);
   }, [prefilledMatch]);
@@ -99,11 +97,11 @@ export default function App() {
         fetch(`${API}/challenges/${username}`),
       ]);
 
-      const betsData      = betsRes.ok      ? await betsRes.json()      : [];
-      const contestsData  = contestsRes.ok  ? await contestsRes.json()  : { contests: [] };
-      const challengesData= challengesRes.ok? await challengesRes.json(): { challenges: [] };
+      const betsData       = betsRes.ok       ? await betsRes.json()       : [];
+      const contestsData   = contestsRes.ok   ? await contestsRes.json()   : { contests: [] };
+      const challengesData = challengesRes.ok ? await challengesRes.json() : { challenges: [] };
 
-      const bets = Array.isArray(betsData) ? betsData : [];
+      const bets       = Array.isArray(betsData) ? betsData : [];
       const contests   = contestsData.contests   || [];
       const challenges = challengesData.challenges || [];
 
@@ -115,6 +113,7 @@ export default function App() {
         matchLabel: b.matchLabel,
         team: b.team,
         amount: b.amount,
+        odds: b.odds || 2.0,
         status: b.status,
         createdAt: b.createdAt,
         detail: null,
@@ -238,14 +237,14 @@ export default function App() {
     setSelectedSport(iplSport);
     setSelectedTeam(null);
     setBetAmount("");
-    setPrefilledMatch(matchInfo);
-    setMatchStatus(null); // will be fetched by the useEffect above
+    setPrefilledMatch(matchInfo); // matchInfo now includes odds from Matches.jsx
+    setMatchStatus(null);
     setError("");
     setScreen("bet");
   };
 
+  // ─── Place Bet — sends odds to backend for correct payout ─────────────────
   const placeBet = async () => {
-    // ── NEW: hard block if match is live or completed ──
     if (matchStatus === "live") {
       setError("Betting is closed — this match has already started!");
       return;
@@ -262,9 +261,13 @@ export default function App() {
       setError("Please go to 🏏 IPL tab and click Bet Now on a match first!");
       return;
     }
+
     setLoading(true);
     setError("");
     try {
+      // Use live odds for this team, fallback to 2.0
+      const teamOdds = prefilledMatch.odds?.[selectedTeam] || 2.0;
+
       const res = await fetch(`${API}/bet`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -274,6 +277,7 @@ export default function App() {
           matchId: String(prefilledMatch.matchId),
           matchLabel: prefilledMatch.matchLabel,
           team: selectedTeam,
+          odds: teamOdds,
         }),
       });
       const data = await res.json();
@@ -282,7 +286,13 @@ export default function App() {
         setTimeout(() => setAnimatePoints(false), 1000);
         setPoints(data.points);
         setLockedPoints(data.lockedPoints);
-        setBetPlaced({ amount, team: selectedTeam, matchLabel: prefilledMatch.matchLabel });
+        setBetPlaced({
+          amount,
+          team: selectedTeam,
+          matchLabel: prefilledMatch.matchLabel,
+          odds: teamOdds,
+          potentialWin: Math.floor(amount * teamOdds),
+        });
         fetchMyBets();
         fetchAllHistory();
         fetchLeaderboard();
@@ -347,7 +357,10 @@ export default function App() {
 
   const pointsDisplay = (item) => {
     if (item.status === "won") {
-      if (item.type === "bet")       return `+${item.amount} pts`;
+      if (item.type === "bet") {
+        const payout = Math.floor(item.amount * (item.odds || 2.0));
+        return `+${payout - item.amount} pts profit`;
+      }
       if (item.type === "contest")   return `+${item.prize - item.amount} pts profit`;
       if (item.type === "challenge") return `+${item.amount} pts profit`;
     }
@@ -367,7 +380,7 @@ export default function App() {
   const maxPoints = Math.max(...leaderboardList().map(p => p.points), 1000);
   const pendingCount = myBets.filter(b => b.status === "pending").length;
 
-  // ── NEW: derived flag used in the bet screen ──
+  // derived flag used in the bet screen
   const isBettingLocked = matchStatus === "live" || matchStatus === "completed";
 
   return (
@@ -508,6 +521,7 @@ export default function App() {
                 </div>
               ) : (
                 <>
+                  {/* Selected match banner */}
                   <div style={{
                     background: "rgba(29,158,117,0.1)", border: "1px solid #1D9E75",
                     borderRadius: 12, padding: "12px 16px", marginBottom: 20,
@@ -517,7 +531,6 @@ export default function App() {
                       <div style={{ fontSize: 11, color: "#1D9E75", fontWeight: 600, marginBottom: 4, textTransform: "uppercase" }}>Selected Match</div>
                       <div style={{ fontWeight: 600, fontSize: 16 }}>
                         🏏 {prefilledMatch.matchLabel}
-                        {/* ── NEW: live pill next to match name ── */}
                         {matchStatus === "live" && (
                           <span style={{
                             marginLeft: 10, fontSize: 10, fontWeight: 700,
@@ -535,7 +548,7 @@ export default function App() {
                       style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", fontSize: 20 }}>×</button>
                   </div>
 
-                  {/* ── NEW: lock banner shown when match is live ── */}
+                  {/* Lock banner when match is live or completed */}
                   {isBettingLocked && (
                     <div style={{
                       background: "#FCEBEB", border: "0.5px solid #F09595",
@@ -568,21 +581,79 @@ export default function App() {
                     </div>
                   )}
 
-                  {/* ── Only show team picker and bet form if match is NOT locked ── */}
+                  {/* Team picker + bet form — only shown if match is not locked */}
                   {!isBettingLocked && (
                     <>
                       <div className="section">
                         <div className="section-label">Pick Your Team</div>
                         <div className="team-grid">
-                          {selectedSport?.teams.map(team => (
-                            <button key={team} className={`team-card ${selectedTeam === team ? "selected" : ""}`}
-                              onClick={() => setSelectedTeam(team)}>{team}</button>
-                          ))}
+                          {selectedSport?.teams.map(team => {
+                            const teamOdds = prefilledMatch?.odds?.[team];
+                            const isSelected = selectedTeam === team;
+                            const isFav = teamOdds && prefilledMatch?.odds
+                              ? teamOdds === Math.min(...Object.values(prefilledMatch.odds))
+                              : false;
+                            return (
+                              <button
+                                key={team}
+                                className={`team-card ${isSelected ? "selected" : ""}`}
+                                onClick={() => setSelectedTeam(team)}
+                              >
+                                <span>{team}</span>
+                                {/* Live odds badge on each team button */}
+                                {teamOdds && (
+                                  <span style={{
+                                    display: "block",
+                                    fontSize: 12,
+                                    fontWeight: 700,
+                                    marginTop: 5,
+                                    color: isFav ? "#0F6E56" : "#A32D2D",
+                                    background: isFav ? "#E1F5EE" : "#FCEBEB",
+                                    borderRadius: 6,
+                                    padding: "2px 8px",
+                                    border: `1px solid ${isFav ? "#5DCAA5" : "#F09595"}`,
+                                  }}>
+                                    {teamOdds}x {isFav ? "⭐ Fav" : "💎 Dog"}
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
 
                       {selectedTeam && (
                         <div className="section">
+                          {/* Payout preview — shows live odds calculation */}
+                          {prefilledMatch?.odds?.[selectedTeam] && betAmount && parseInt(betAmount) > 0 && (
+                            <div style={{
+                              background: "#E1F5EE", border: "1px solid #5DCAA5",
+                              borderRadius: 10, padding: "14px 18px", marginBottom: 16,
+                              display: "flex", justifyContent: "space-between", alignItems: "center",
+                            }}>
+                              <div>
+                                <div style={{ fontSize: 11, color: "#085041", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
+                                  Potential Win
+                                </div>
+                                <div style={{ fontSize: 26, fontWeight: 700, color: "#0F6E56", lineHeight: 1 }}>
+                                  {Math.floor(parseInt(betAmount) * prefilledMatch.odds[selectedTeam])} pts
+                                </div>
+                                <div style={{ fontSize: 12, color: "#1D9E75", marginTop: 4 }}>
+                                  {parseInt(betAmount)} pts × {prefilledMatch.odds[selectedTeam]}x odds
+                                </div>
+                              </div>
+                              <div style={{ textAlign: "right" }}>
+                                <div style={{ fontSize: 11, color: "#888780", marginBottom: 2 }}>Profit if win</div>
+                                <div style={{ fontSize: 18, fontWeight: 700, color: "#0F6E56" }}>
+                                  +{Math.floor(parseInt(betAmount) * prefilledMatch.odds[selectedTeam]) - parseInt(betAmount)} pts
+                                </div>
+                                <div style={{ fontSize: 10, color: "#888780", marginTop: 4 }}>
+                                  📊 Live odds
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
                           <div className="section-label">Bet Amount (Available: {points} pts)</div>
                           <div className="amount-row">
                             {[50, 100, 250, 500].map(amt => (
@@ -605,9 +676,10 @@ export default function App() {
                     </>
                   )}
 
-                  {/* show error even in locked state (e.g. if somehow placeBet was triggered) */}
+                  {/* Error shown even in locked state */}
                   {isBettingLocked && error && <div className="error-msg">{error}</div>}
 
+                  {/* Bet placed confirmation */}
                   {betPlaced && (
                     <div className="bet-result win">
                       <div className="result-emoji">🔒</div>
@@ -615,7 +687,12 @@ export default function App() {
                       <div style={{ fontSize: 14, marginTop: 8, opacity: 0.8 }}>
                         {betPlaced.amount} pts on {betPlaced.team} · {betPlaced.matchLabel}
                       </div>
-                      <div style={{ fontSize: 13, marginTop: 4, opacity: 0.6 }}>
+                      {betPlaced.potentialWin && (
+                        <div style={{ fontSize: 16, marginTop: 8, fontWeight: 700, color: "#1D9E75" }}>
+                          🏆 Potential win: {betPlaced.potentialWin} pts ({betPlaced.odds}x odds)
+                        </div>
+                      )}
+                      <div style={{ fontSize: 13, marginTop: 6, opacity: 0.6 }}>
                         Points update automatically when match ends ⏳
                       </div>
                     </div>
@@ -701,6 +778,15 @@ export default function App() {
                           }}>
                             {item.typeEmoji} {item.typeLabel}
                           </span>
+                          {/* Show odds badge for solo bets */}
+                          {item.type === "bet" && item.odds && item.odds !== 2.0 && (
+                            <span style={{
+                              fontSize: 10, padding: "1px 7px", borderRadius: 99, fontWeight: 600,
+                              background: "#E1F5EE", color: "#085041", border: "0.5px solid #5DCAA5",
+                            }}>
+                              {item.odds}x odds
+                            </span>
+                          )}
                         </div>
                         <div style={{ fontSize: 12, opacity: 0.7, marginTop: 2 }}>
                           Picked: <strong>{item.team}</strong>
