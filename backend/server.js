@@ -5,10 +5,10 @@ const cors = require("cors");
 const bcrypt = require("bcryptjs");
 
 const app = express();
+app.use(cors());                          // ✅ middleware first
+app.use(express.json());                  // ✅ body parser before routes
 const fantasy11Routes = require('./fantasy11Routes');
-app.use('/fantasy11', fantasy11Routes);
-app.use(cors());
-app.use(express.json());
+app.use('/fantasy11', fantasy11Routes);   // ✅ routes after
 
 const CRICKET_API_KEY = "0db27b38-9a1c-4e30-86f3-dda28ca1e0c8";
 const ODDS_API_KEY    = "537f56e47ea1d0e79220de4ea5cbc780";
