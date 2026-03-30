@@ -11,77 +11,88 @@ const SPORTS = [
 ];
 
 const IPL_MATCHES = [
-  { id: "ipl1",  team1: "RCB", team2: "SRH",  date: "2026-03-28", venue: "Bangalore" },
-  { id: "ipl2",  team1: "MI",  team2: "KKR",  date: "2026-03-29", venue: "Mumbai" },
-  { id: "ipl3",  team1: "RR",  team2: "CSK",  date: "2026-03-30", venue: "Guwahati" },
-  { id: "ipl4",  team1: "PBKS",team2: "GT",   date: "2026-03-31", venue: "Mohali" },
-  { id: "ipl5",  team1: "LSG", team2: "DC",   date: "2026-04-01", venue: "Lucknow" },
-  { id: "ipl6",  team1: "SRH", team2: "LSG",  date: "2026-04-02", venue: "Hyderabad" },
-  { id: "ipl7",  team1: "RCB", team2: "CSK",  date: "2026-04-03", venue: "Bangalore" },
-  { id: "ipl8",  team1: "DC",  team2: "MI",   date: "2026-04-04", venue: "Delhi" },
-  { id: "ipl9",  team1: "GT",  team2: "RR",   date: "2026-04-04", venue: "Ahmedabad" },
-  { id: "ipl10", team1: "KKR", team2: "PBKS", date: "2026-04-05", venue: "Kolkata" },
-  { id: "ipl11", team1: "CSK", team2: "MI",   date: "2026-04-05", venue: "Chennai" },
-  { id: "ipl12", team1: "LSG", team2: "RCB",  date: "2026-04-06", venue: "Lucknow" },
-  { id: "ipl13", team1: "SRH", team2: "DC",   date: "2026-04-07", venue: "Hyderabad" },
-  { id: "ipl14", team1: "RR",  team2: "KKR",  date: "2026-04-08", venue: "Jaipur" },
-  { id: "ipl15", team1: "PBKS",team2: "GT",   date: "2026-04-09", venue: "Mohali" },
-  { id: "ipl16", team1: "MI",  team2: "LSG",  date: "2026-04-10", venue: "Mumbai" },
-  { id: "ipl17", team1: "RCB", team2: "RR",   date: "2026-04-11", venue: "Bangalore" },
-  { id: "ipl18", team1: "CSK", team2: "SRH",  date: "2026-04-12", venue: "Chennai" },
-  { id: "ipl19", team1: "DC",  team2: "KKR",  date: "2026-04-12", venue: "Delhi" },
-  { id: "ipl20", team1: "GT",  team2: "MI",   date: "2026-04-13", venue: "Ahmedabad" },
-  { id: "ipl21", team1: "SRH", team2: "RR",   date: "2026-04-13", venue: "Hyderabad" },
-  { id: "ipl22", team1: "CSK", team2: "KKR",  date: "2026-04-14", venue: "Chennai" },
-  { id: "ipl23", team1: "RCB", team2: "LSG",  date: "2026-04-15", venue: "Bangalore" },
-  { id: "ipl24", team1: "MI",  team2: "PBKS", date: "2026-04-16", venue: "Mumbai" },
-  { id: "ipl25", team1: "GT",  team2: "KKR",  date: "2026-04-17", venue: "Ahmedabad" },
-  { id: "ipl26", team1: "RCB", team2: "DC",   date: "2026-04-18", venue: "Bangalore" },
-  { id: "ipl27", team1: "SRH", team2: "CSK",  date: "2026-04-18", venue: "Hyderabad" },
-  { id: "ipl28", team1: "KKR", team2: "RR",   date: "2026-04-19", venue: "Kolkata" },
-  { id: "ipl29", team1: "PBKS",team2: "LSG",  date: "2026-04-19", venue: "Mohali" },
-  { id: "ipl30", team1: "GT",  team2: "MI",   date: "2026-04-20", venue: "Ahmedabad" },
-  { id: "ipl31", team1: "SRH", team2: "DC",   date: "2026-04-21", venue: "Hyderabad" },
-  { id: "ipl32", team1: "LSG", team2: "RR",   date: "2026-04-22", venue: "Lucknow" },
-  { id: "ipl33", team1: "MI",  team2: "CSK",  date: "2026-04-23", venue: "Mumbai" },
-  { id: "ipl34", team1: "RCB", team2: "GT",   date: "2026-04-24", venue: "Bangalore" },
-  { id: "ipl35", team1: "DC",  team2: "PBKS", date: "2026-04-25", venue: "Delhi" },
-  { id: "ipl36", team1: "RR",  team2: "SRH",  date: "2026-04-25", venue: "Jaipur" },
-  { id: "ipl37", team1: "GT",  team2: "CSK",  date: "2026-04-26", venue: "Ahmedabad" },
-  { id: "ipl38", team1: "LSG", team2: "KKR",  date: "2026-04-26", venue: "Lucknow" },
-  { id: "ipl39", team1: "DC",  team2: "RCB",  date: "2026-04-27", venue: "Delhi" },
-  { id: "ipl40", team1: "PBKS",team2: "RR",   date: "2026-04-28", venue: "Mohali" },
-  { id: "ipl41", team1: "MI",  team2: "SRH",  date: "2026-04-29", venue: "Mumbai" },
-  { id: "ipl42", team1: "GT",  team2: "RCB",  date: "2026-04-30", venue: "Ahmedabad" },
-  { id: "ipl43", team1: "RR",  team2: "DC",   date: "2026-05-01", venue: "Jaipur" },
-  { id: "ipl44", team1: "CSK", team2: "MI",   date: "2026-05-02", venue: "Chennai" },
-  { id: "ipl45", team1: "SRH", team2: "KKR",  date: "2026-05-03", venue: "Hyderabad" },
-  { id: "ipl46", team1: "GT",  team2: "PBKS", date: "2026-05-03", venue: "Ahmedabad" },
-  { id: "ipl47", team1: "MI",  team2: "LSG",  date: "2026-05-04", venue: "Mumbai" },
-  { id: "ipl48", team1: "DC",  team2: "CSK",  date: "2026-05-05", venue: "Delhi" },
-  { id: "ipl49", team1: "SRH", team2: "PBKS", date: "2026-05-06", venue: "Hyderabad" },
-  { id: "ipl50", team1: "LSG", team2: "RCB",  date: "2026-05-07", venue: "Lucknow" },
-  { id: "ipl51", team1: "DC",  team2: "KKR",  date: "2026-05-08", venue: "Delhi" },
-  { id: "ipl52", team1: "RR",  team2: "GT",   date: "2026-05-09", venue: "Jaipur" },
-  { id: "ipl53", team1: "CSK", team2: "LSG",  date: "2026-05-10", venue: "Chennai" },
-  { id: "ipl54", team1: "RCB", team2: "MI",   date: "2026-05-10", venue: "Bangalore" },
-  { id: "ipl55", team1: "PBKS",team2: "DC",   date: "2026-05-11", venue: "Mohali" },
-  { id: "ipl56", team1: "GT",  team2: "SRH",  date: "2026-05-12", venue: "Ahmedabad" },
-  { id: "ipl57", team1: "RCB", team2: "KKR",  date: "2026-05-13", venue: "Bangalore" },
-  { id: "ipl58", team1: "PBKS",team2: "MI",   date: "2026-05-14", venue: "Dharamsala" },
-  { id: "ipl59", team1: "LSG", team2: "CSK",  date: "2026-05-15", venue: "Lucknow" },
-  { id: "ipl60", team1: "KKR", team2: "GT",   date: "2026-05-16", venue: "Kolkata" },
-  { id: "ipl61", team1: "PBKS",team2: "RCB",  date: "2026-05-17", venue: "Dharamsala" },
-  { id: "ipl62", team1: "DC",  team2: "RR",   date: "2026-05-17", venue: "Delhi" },
-  { id: "ipl63", team1: "CSK", team2: "SRH",  date: "2026-05-18", venue: "Chennai" },
-  { id: "ipl64", team1: "RR",  team2: "LSG",  date: "2026-05-19", venue: "Jaipur" },
-  { id: "ipl65", team1: "KKR", team2: "MI",   date: "2026-05-20", venue: "Kolkata" },
-  { id: "ipl66", team1: "CSK", team2: "GT",   date: "2026-05-21", venue: "Chennai" },
-  { id: "ipl67", team1: "SRH", team2: "RCB",  date: "2026-05-22", venue: "Hyderabad" },
-  { id: "ipl68", team1: "LSG", team2: "PBKS", date: "2026-05-23", venue: "Lucknow" },
-  { id: "ipl69", team1: "MI",  team2: "RR",   date: "2026-05-24", venue: "Mumbai" },
-  { id: "ipl70", team1: "KKR", team2: "DC",   date: "2026-05-24", venue: "Kolkata" },
+  { id: "ipl1",  team1: "RCB", team2: "SRH",  date: "2026-03-28", time: "19:30", venue: "Bangalore" },
+  { id: "ipl2",  team1: "MI",  team2: "KKR",  date: "2026-03-29", time: "19:30", venue: "Mumbai" },
+  { id: "ipl3",  team1: "RR",  team2: "CSK",  date: "2026-03-30", time: "19:30", venue: "Guwahati" },
+  { id: "ipl4",  team1: "PBKS",team2: "GT",   date: "2026-03-31", time: "19:30", venue: "Mohali" },
+  { id: "ipl5",  team1: "LSG", team2: "DC",   date: "2026-04-01", time: "19:30", venue: "Lucknow" },
+  { id: "ipl6",  team1: "SRH", team2: "LSG",  date: "2026-04-02", time: "19:30", venue: "Hyderabad" },
+  { id: "ipl7",  team1: "RCB", team2: "CSK",  date: "2026-04-03", time: "19:30", venue: "Bangalore" },
+  { id: "ipl8",  team1: "DC",  team2: "MI",   date: "2026-04-04", time: "15:30", venue: "Delhi" },
+  { id: "ipl9",  team1: "GT",  team2: "RR",   date: "2026-04-04", time: "19:30", venue: "Ahmedabad" },
+  { id: "ipl10", team1: "KKR", team2: "PBKS", date: "2026-04-05", time: "15:30", venue: "Kolkata" },
+  { id: "ipl11", team1: "CSK", team2: "MI",   date: "2026-04-05", time: "19:30", venue: "Chennai" },
+  { id: "ipl12", team1: "LSG", team2: "RCB",  date: "2026-04-06", time: "19:30", venue: "Lucknow" },
+  { id: "ipl13", team1: "SRH", team2: "DC",   date: "2026-04-07", time: "19:30", venue: "Hyderabad" },
+  { id: "ipl14", team1: "RR",  team2: "KKR",  date: "2026-04-08", time: "19:30", venue: "Jaipur" },
+  { id: "ipl15", team1: "PBKS",team2: "GT",   date: "2026-04-09", time: "19:30", venue: "Mohali" },
+  { id: "ipl16", team1: "MI",  team2: "LSG",  date: "2026-04-10", time: "19:30", venue: "Mumbai" },
+  { id: "ipl17", team1: "RCB", team2: "RR",   date: "2026-04-11", time: "19:30", venue: "Bangalore" },
+  { id: "ipl18", team1: "CSK", team2: "SRH",  date: "2026-04-12", time: "15:30", venue: "Chennai" },
+  { id: "ipl19", team1: "DC",  team2: "KKR",  date: "2026-04-12", time: "19:30", venue: "Delhi" },
+  { id: "ipl20", team1: "GT",  team2: "MI",   date: "2026-04-13", time: "19:30", venue: "Ahmedabad" },
+  { id: "ipl21", team1: "SRH", team2: "RR",   date: "2026-04-13", time: "19:30", venue: "Hyderabad" },
+  { id: "ipl22", team1: "CSK", team2: "KKR",  date: "2026-04-14", time: "19:30", venue: "Chennai" },
+  { id: "ipl23", team1: "RCB", team2: "LSG",  date: "2026-04-15", time: "19:30", venue: "Bangalore" },
+  { id: "ipl24", team1: "MI",  team2: "PBKS", date: "2026-04-16", time: "19:30", venue: "Mumbai" },
+  { id: "ipl25", team1: "GT",  team2: "KKR",  date: "2026-04-17", time: "19:30", venue: "Ahmedabad" },
+  { id: "ipl26", team1: "RCB", team2: "DC",   date: "2026-04-18", time: "15:30", venue: "Bangalore" },
+  { id: "ipl27", team1: "SRH", team2: "CSK",  date: "2026-04-18", time: "19:30", venue: "Hyderabad" },
+  { id: "ipl28", team1: "KKR", team2: "RR",   date: "2026-04-19", time: "15:30", venue: "Kolkata" },
+  { id: "ipl29", team1: "PBKS",team2: "LSG",  date: "2026-04-19", time: "19:30", venue: "Mohali" },
+  { id: "ipl30", team1: "GT",  team2: "MI",   date: "2026-04-20", time: "19:30", venue: "Ahmedabad" },
+  { id: "ipl31", team1: "SRH", team2: "DC",   date: "2026-04-21", time: "19:30", venue: "Hyderabad" },
+  { id: "ipl32", team1: "LSG", team2: "RR",   date: "2026-04-22", time: "19:30", venue: "Lucknow" },
+  { id: "ipl33", team1: "MI",  team2: "CSK",  date: "2026-04-23", time: "19:30", venue: "Mumbai" },
+  { id: "ipl34", team1: "RCB", team2: "GT",   date: "2026-04-24", time: "19:30", venue: "Bangalore" },
+  { id: "ipl35", team1: "DC",  team2: "PBKS", date: "2026-04-25", time: "15:30", venue: "Delhi" },
+  { id: "ipl36", team1: "RR",  team2: "SRH",  date: "2026-04-25", time: "19:30", venue: "Jaipur" },
+  { id: "ipl37", team1: "GT",  team2: "CSK",  date: "2026-04-26", time: "15:30", venue: "Ahmedabad" },
+  { id: "ipl38", team1: "LSG", team2: "KKR",  date: "2026-04-26", time: "19:30", venue: "Lucknow" },
+  { id: "ipl39", team1: "DC",  team2: "RCB",  date: "2026-04-27", time: "19:30", venue: "Delhi" },
+  { id: "ipl40", team1: "PBKS",team2: "RR",   date: "2026-04-28", time: "19:30", venue: "Mohali" },
+  { id: "ipl41", team1: "MI",  team2: "SRH",  date: "2026-04-29", time: "19:30", venue: "Mumbai" },
+  { id: "ipl42", team1: "GT",  team2: "RCB",  date: "2026-04-30", time: "19:30", venue: "Ahmedabad" },
+  { id: "ipl43", team1: "RR",  team2: "DC",   date: "2026-05-01", time: "19:30", venue: "Jaipur" },
+  { id: "ipl44", team1: "CSK", team2: "MI",   date: "2026-05-02", time: "19:30", venue: "Chennai" },
+  { id: "ipl45", team1: "SRH", team2: "KKR",  date: "2026-05-03", time: "15:30", venue: "Hyderabad" },
+  { id: "ipl46", team1: "GT",  team2: "PBKS", date: "2026-05-03", time: "19:30", venue: "Ahmedabad" },
+  { id: "ipl47", team1: "MI",  team2: "LSG",  date: "2026-05-04", time: "19:30", venue: "Mumbai" },
+  { id: "ipl48", team1: "DC",  team2: "CSK",  date: "2026-05-05", time: "19:30", venue: "Delhi" },
+  { id: "ipl49", team1: "SRH", team2: "PBKS", date: "2026-05-06", time: "19:30", venue: "Hyderabad" },
+  { id: "ipl50", team1: "LSG", team2: "RCB",  date: "2026-05-07", time: "19:30", venue: "Lucknow" },
+  { id: "ipl51", team1: "DC",  team2: "KKR",  date: "2026-05-08", time: "19:30", venue: "Delhi" },
+  { id: "ipl52", team1: "RR",  team2: "GT",   date: "2026-05-09", time: "19:30", venue: "Jaipur" },
+  { id: "ipl53", team1: "CSK", team2: "LSG",  date: "2026-05-10", time: "15:30", venue: "Chennai" },
+  { id: "ipl54", team1: "RCB", team2: "MI",   date: "2026-05-10", time: "19:30", venue: "Bangalore" },
+  { id: "ipl55", team1: "PBKS",team2: "DC",   date: "2026-05-11", time: "19:30", venue: "Mohali" },
+  { id: "ipl56", team1: "GT",  team2: "SRH",  date: "2026-05-12", time: "19:30", venue: "Ahmedabad" },
+  { id: "ipl57", team1: "RCB", team2: "KKR",  date: "2026-05-13", time: "19:30", venue: "Bangalore" },
+  { id: "ipl58", team1: "PBKS",team2: "MI",   date: "2026-05-14", time: "19:30", venue: "Dharamsala" },
+  { id: "ipl59", team1: "LSG", team2: "CSK",  date: "2026-05-15", time: "19:30", venue: "Lucknow" },
+  { id: "ipl60", team1: "KKR", team2: "GT",   date: "2026-05-16", time: "19:30", venue: "Kolkata" },
+  { id: "ipl61", team1: "PBKS",team2: "RCB",  date: "2026-05-17", time: "15:30", venue: "Dharamsala" },
+  { id: "ipl62", team1: "DC",  team2: "RR",   date: "2026-05-17", time: "19:30", venue: "Delhi" },
+  { id: "ipl63", team1: "CSK", team2: "SRH",  date: "2026-05-18", time: "19:30", venue: "Chennai" },
+  { id: "ipl64", team1: "RR",  team2: "LSG",  date: "2026-05-19", time: "19:30", venue: "Jaipur" },
+  { id: "ipl65", team1: "KKR", team2: "MI",   date: "2026-05-20", time: "19:30", venue: "Kolkata" },
+  { id: "ipl66", team1: "CSK", team2: "GT",   date: "2026-05-21", time: "19:30", venue: "Chennai" },
+  { id: "ipl67", team1: "SRH", team2: "RCB",  date: "2026-05-22", time: "19:30", venue: "Hyderabad" },
+  { id: "ipl68", team1: "LSG", team2: "PBKS", date: "2026-05-23", time: "19:30", venue: "Lucknow" },
+  { id: "ipl69", team1: "MI",  team2: "RR",   date: "2026-05-24", time: "15:30", venue: "Mumbai" },
+  { id: "ipl70", team1: "KKR", team2: "DC",   date: "2026-05-24", time: "19:30", venue: "Kolkata" },
 ];
+
+// ── Helper: check if a contest's match has started based on IST time ──────────
+function isMatchStarted(contest) {
+  if (contest.status === "locked") return true;
+  const iplMatch = IPL_MATCHES.find(
+    m => m.team1 === contest.team1 && m.team2 === contest.team2
+  );
+  if (!iplMatch || !iplMatch.time) return false;
+  const matchDate = new Date(`${iplMatch.date}T${iplMatch.time}:00+05:30`);
+  return new Date() >= matchDate;
+}
 
 // ── Mode Picker Component ─────────────────────────────────────────────────────
 function ModePicker({ value, onChange }) {
@@ -135,6 +146,7 @@ function Fantasy11Banner({ matchId, matchLabel, teams }) {
   );
 }
 
+// ── FIX 1: Added "live" entry to statusBadge ──────────────────────────────────
 function statusBadge(status) {
   const map = {
     pending:   { label: "Pending",   color: "#BA7517", bg: "#FAEEDA" },
@@ -143,6 +155,7 @@ function statusBadge(status) {
     cancelled: { label: "Cancelled", color: "#5F5E5A", bg: "#F1EFE8" },
     open:      { label: "Open",      color: "#085041", bg: "#E1F5EE" },
     locked:    { label: "Locked",    color: "#BA7517", bg: "#FAEEDA" },
+    live:      { label: "🔴 Live",   color: "#8B0000", bg: "#FFE4E4" }, // ✅ NEW
   };
   const s = map[status] || map.cancelled;
   return (
@@ -420,7 +433,7 @@ export default function Multiplayer({ username, points, setPoints }) {
 
   // Challenge state
   const [challenges, setChallenges]           = useState([]);
-  const [challengeMode, setChallengeMode]     = useState("bet");       // "bet" | "fantasy11"
+  const [challengeMode, setChallengeMode]     = useState("bet");
   const [challengeVisibility, setChallengeVisibility] = useState("public");
   const [invitedPlayers, setInvitedPlayers]   = useState([]);
   const [challengePassword, setChallengePassword] = useState("");
@@ -436,7 +449,7 @@ export default function Multiplayer({ username, points, setPoints }) {
   // Contest state
   const [contests, setContests]             = useState([]);
   const [openContests, setOpenContests]     = useState([]);
-  const [contestMode, setContestMode]       = useState("bet");         // "bet" | "fantasy11"
+  const [contestMode, setContestMode]       = useState("bet");
   const [contestName, setContestName]       = useState("");
   const [cSport, setCsport]                 = useState(null);
   const [cIPLMatch, setCIplMatch]           = useState(null);
@@ -450,7 +463,6 @@ export default function Multiplayer({ username, points, setPoints }) {
   const [joinTeam, setJoinTeam]             = useState(null);
   const [passwordModal, setPasswordModal]   = useState(null);
 
-  // Fantasy11 inline
   const [f11ChallengeMatch, setF11ChallengeMatch] = useState(null);
 
   const [loading, setLoading]           = useState(false);
@@ -525,8 +537,6 @@ export default function Multiplayer({ username, points, setPoints }) {
     if (!selectedSport) return flash("error", "Pick a sport");
     if (selectedSport.id === "cricket" && !selectedIPLMatch) return flash("error", "Please pick an IPL match");
     if (!matchLabel.trim()) return flash("error", "Enter a match label");
-
-    // In bet mode need a team; in fantasy11 mode no team needed
     if (!isF11 && !myTeam) return flash("error", "Pick your team");
 
     const w = parseInt(wager);
@@ -545,7 +555,7 @@ export default function Multiplayer({ username, points, setPoints }) {
         team1: selectedIPLMatch?.team1 || null,
         team2: selectedIPLMatch?.team2 || null,
         visibility: challengeVisibility,
-        mode: challengeMode,  // store mode
+        mode: challengeMode,
         ...(isPrivate
           ? { invitedPlayers, password: challengePassword.trim() }
           : { opponent: opponentName.trim() }
@@ -567,7 +577,6 @@ export default function Multiplayer({ username, points, setPoints }) {
             : `Challenge sent to ${opponentName}! ${w} pts escrowed.`;
         flash("success", msg);
 
-        // If F11 mode, show inline fantasy11 builder
         if (isF11 && selectedIPLMatch) {
           setF11ChallengeMatch({
             matchId: selectedIPLMatch.id,
@@ -770,7 +779,7 @@ export default function Multiplayer({ username, points, setPoints }) {
 
       {(view === "list" || view === "contests") && <HowItWorks />}
 
-      {/* ── Inline Fantasy11 Builder (shown after F11 challenge created) ── */}
+      {/* ── Inline Fantasy11 Builder ── */}
       {f11ChallengeMatch && (view === "list") && (
         <div style={{ marginBottom: 20, background: "#0d1117", borderRadius: 16, padding: 16, border: "1px solid #ffd16644" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
@@ -852,7 +861,6 @@ export default function Multiplayer({ username, points, setPoints }) {
       {/* ── Create Challenge ── */}
       {view === "create" && (
         <div style={S.card}>
-          {/* Mode picker FIRST */}
           <ModePicker value={challengeMode} onChange={(m) => { setChallengeMode(m); setMyTeam(null); }} />
 
           <div style={S.label}>Challenge type</div>
@@ -892,7 +900,6 @@ export default function Multiplayer({ username, points, setPoints }) {
             </>
           )}
 
-          {/* Fantasy11 info banner OR team picker */}
           {challengeMode === "fantasy11" && selectedIPLMatch ? (
             <Fantasy11Banner matchId={selectedIPLMatch.id} matchLabel={matchLabel} teams={[selectedIPLMatch.team1, selectedIPLMatch.team2]} />
           ) : challengeMode === "bet" && selectedSport && (
@@ -1042,8 +1049,16 @@ export default function Multiplayer({ username, points, setPoints }) {
             const totalPot  = c.entryFee * c.participants.length;
             const pct       = Math.round((c.participants.length / c.maxPlayers) * 100);
             const isCreator = c.createdBy === username;
-            const matchStarted = c.status === "locked";
             const isF11     = isF11Contest(c) || c.mode === "fantasy11";
+
+            // ✅ FIX: Use actual IST match time to determine if match has started
+            const matchStarted = isMatchStarted(c);
+
+            // ✅ FIX: Show "Live" badge when match is ongoing but not yet settled
+            const displayStatus =
+              (c.status === "open" || c.status === "locked") && matchStarted
+                ? "live"
+                : c.status;
 
             return (
               <div key={c._id} style={S.card}>
@@ -1056,7 +1071,8 @@ export default function Multiplayer({ username, points, setPoints }) {
                     </div>
                     <div style={{ fontSize: 12, color: "#888780", marginTop: 2 }}>🏏 {c.matchLabel}</div>
                   </div>
-                  <div style={{ textAlign: "right" }}>{statusBadge(c.status)}</div>
+                  {/* ✅ FIX: Use displayStatus so badge shows "Live" during match */}
+                  <div style={{ textAlign: "right" }}>{statusBadge(displayStatus)}</div>
                 </div>
 
                 {isF11 && (
@@ -1085,14 +1101,23 @@ export default function Multiplayer({ username, points, setPoints }) {
                   <div style={{ fontSize: 12, color: "#1D9E75", marginTop: 8 }}>✅ You picked <strong>{myEntry.team}</strong></div>
                 )}
 
-                {(c.status === "open" || c.status === "locked") && <div style={S.autoSettleNotice}>⏳ Auto-settling after match ends via Cricket API</div>}
+                {(c.status === "open" || c.status === "locked") && (
+                  <div style={S.autoSettleNotice}>⏳ Auto-settling after match ends via Cricket API</div>
+                )}
 
+                {/* ✅ FIX: Cancel button blocked by real match time, not just "locked" status */}
                 {isCreator && (c.status === "open" || c.status === "locked") && (
                   <div style={{ marginTop: 8 }}>
-                    {matchStarted
-                      ? <><button style={S.btnDisabled} disabled>🔒 Cancel Contest</button><div style={S.matchStartedWarn}>⚠️ Match has started — cancellation is no longer available</div></>
-                      : <button style={S.btn("#E24B4A")} onClick={() => handleCancelContest(c._id)} disabled={loading}>Cancel Contest</button>
-                    }
+                    {matchStarted ? (
+                      <>
+                        <button style={S.btnDisabled} disabled>🔒 Cancel Contest</button>
+                        <div style={S.matchStartedWarn}>⚠️ Match has started — cancellation is no longer available</div>
+                      </>
+                    ) : (
+                      <button style={S.btn("#E24B4A")} onClick={() => handleCancelContest(c._id)} disabled={loading}>
+                        Cancel Contest
+                      </button>
+                    )}
                   </div>
                 )}
 
@@ -1195,7 +1220,6 @@ export default function Multiplayer({ username, points, setPoints }) {
         <div style={S.card}>
           <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 16 }}>🏆 Create a Contest</div>
 
-          {/* Mode picker FIRST */}
           <ModePicker value={contestMode} onChange={(m) => { setContestMode(m); setCMyTeam(null); }} />
 
           <div style={S.label}>Contest name</div>
@@ -1222,7 +1246,6 @@ export default function Multiplayer({ username, points, setPoints }) {
             </>
           )}
 
-          {/* Fantasy11 banner OR team picker */}
           {contestMode === "fantasy11" && cIPLMatch ? (
             <Fantasy11Banner matchId={cIPLMatch.id} matchLabel={cMatchLabel} teams={[cIPLMatch.team1, cIPLMatch.team2]} />
           ) : contestMode === "bet" && cSport && (
