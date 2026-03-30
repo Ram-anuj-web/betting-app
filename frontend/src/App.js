@@ -329,13 +329,27 @@ export default function App() {
                 </div>
               </div>
               <div className="sports-grid">
-                {SPORTS.map(sport => (
-                  <div key={sport.id} className="sport-card" onClick={() => setScreen("matches")}>
-                    <span className="sport-emoji">{sport.emoji}</span>
-                    <span className="sport-name">{sport.name}</span>
-                    <span className="sport-arrow">→</span>
-                  </div>
-                ))}
+               {SPORTS.map(sport => (
+  <div
+    key={sport.id}
+    className="sport-card"
+    onClick={() => {
+      if (sport.id === "cricket") {
+        setScreen("matches");
+      } else {
+        alert(`🚧 ${sport.name} — Coming Soon!`);
+      }
+    }}
+    style={sport.id !== "cricket" ? { opacity: 0.6, cursor: "not-allowed" } : {}}
+  >
+    <span className="sport-emoji">{sport.emoji}</span>
+    <span className="sport-name">{sport.name}</span>
+    {sport.id === "cricket"
+      ? <span className="sport-arrow">→</span>
+      : <span style={{ fontSize: 11, color: "#BA7517", fontWeight: 600, marginTop: 4 }}>🚧 Coming Soon</span>
+    }
+  </div>
+))}
               </div>
               <div className="stats-row">
                 <div className="stat-box"><div className="stat-num">{allHistory.length}</div><div className="stat-label">Total Bets</div></div>
