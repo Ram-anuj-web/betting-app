@@ -31,7 +31,7 @@ const betSchema = new mongoose.Schema({
   matchLabel: String,
   team: String,
   amount: Number,
-  odds: { type: Number, default: 2.0 }, // ← NEW: store the odds at bet time
+  odds: { type: Number, default: 2.0 },
   status: { type: String, enum: ["pending", "won", "lost"], default: "pending" },
   createdAt: { type: Date, default: Date.now },
 });
@@ -135,7 +135,6 @@ app.post("/bet", async (req, res) => {
     user.lockedPoints = (user.lockedPoints || 0) + amount;
     await user.save();
 
-    // Store odds (default 2.0 if not provided for backward compat)
     const betOdds = (odds && odds > 1) ? parseFloat(odds.toFixed(2)) : 2.0;
     const bet = new Bet({ username: name, matchId, matchLabel, team, amount, odds: betOdds });
     await bet.save();
@@ -255,7 +254,6 @@ let oddsCache = { data: null, fetchedAt: 0 };
 
 async function fetchIPLOdds() {
   const now = Date.now();
-  // Return cache if fresh (30 min)
   if (oddsCache.data && now - oddsCache.fetchedAt < 30 * 60 * 1000) {
     return oddsCache.data;
   }
@@ -295,7 +293,6 @@ function findOddsForMatch(oddsData, team1, team2) {
 
   if (!match) return null;
 
-  // Average odds across bookmakers for stability
   const team1Odds = [];
   const team2Odds = [];
 
@@ -335,7 +332,6 @@ app.get("/odds/:matchId", async (req, res) => {
     const odds = findOddsForMatch(oddsData, iplMatch.team1, iplMatch.team2);
 
     if (!odds) {
-      // Fallback: balanced odds when API has no data yet
       return res.json({
         matchId,
         team1: iplMatch.team1,
@@ -358,12 +354,12 @@ app.get("/odds/:matchId", async (req, res) => {
   }
 });
 
-// ─── GET /odds-bulk — fetch odds for all upcoming matches at once ─────────────
+// ─── GET /odds-bulk ───────────────────────────────────────────────────────────
 app.get("/odds-bulk", async (req, res) => {
   try {
     const oddsData = await fetchIPLOdds();
     const today = new Date().toISOString().slice(0, 10);
-    const upcomingMatches = IPL_MATCHES.filter(m => m.date >= today).slice(0, 10); // next 10
+    const upcomingMatches = IPL_MATCHES.filter(m => m.date >= today).slice(0, 10);
 
     const result = {};
     for (const match of upcomingMatches) {
@@ -449,7 +445,7 @@ app.get("/live-scores", async (req, res) => {
   }
 });
 
-// ─── Auto-settle bets (uses stored odds for payout) ──────────────────────────
+// ─── Auto-settle bets ─────────────────────────────────────────────────────────
 async function checkAndSettleBets() {
   try {
     const pendingBets = await Bet.find({ status: "pending" });
@@ -494,7 +490,6 @@ async function checkAndSettleBets() {
             if (!user) continue;
             const won = winner.toLowerCase().includes(bet.team.toLowerCase());
             if (won) {
-              // Use stored odds for payout, fallback to 2x
               const multiplier = bet.odds && bet.odds > 1 ? bet.odds : 2.0;
               const payout = Math.floor(bet.amount * multiplier);
               user.points += payout;
@@ -628,7 +623,7 @@ setInterval(() => {
   }
 }, 15 * 60 * 1000);
 
-// ─── Admin: Manual Settle ─────────────────────────────────────────────────────
+// ─── Admin: Manual Settle (bets + contests only) ──────────────────────────────
 app.post("/admin/settle-match", async (req, res) => {
   try {
     const { matchId, winner } = req.body;
@@ -771,6 +766,113 @@ app.post("/admin/fix-bet", async (req, res) => {
     res.json({ message: `Fixed ${fixed} bet(s) and ${contestsFixed} contest(s) for ${matchId}.`, winner, fixed, contestsFixed });
   } catch (err) {
     console.error("admin/fix-bet error:", err.message);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// ─── Admin: Settle ALL (bets + contests + challenges) ← NEW ──────────────────
+app.post("/admin/settle-all", async (req, res) => {
+  try {
+    const { matchId, winner } = req.body;
+    if (!matchId || !winner)
+      return res.status(400).json({ message: "matchId and winner are required" });
+
+    const iplId = parseInt(matchId.replace("ipl-", ""));
+    const iplMatch = IPL_MATCHES.find(m => m.id === iplId);
+
+    // ── 1. Settle Bets ──────────────────────────────────────────────────────
+    const pendingBets = await Bet.find({ matchId, status: "pending" });
+    let betsSettled = 0;
+    for (const bet of pendingBets) {
+      const user = await User.findOne({ name: bet.username });
+      if (!user) continue;
+      const won = winner.toLowerCase().includes(bet.team.toLowerCase());
+      if (won) {
+        const multiplier = bet.odds && bet.odds > 1 ? bet.odds : 2.0;
+        user.points += Math.floor(bet.amount * multiplier);
+      }
+      user.lockedPoints = Math.max(0, (user.lockedPoints || 0) - bet.amount);
+      await user.save();
+      bet.status = won ? "won" : "lost";
+      await bet.save();
+      betsSettled++;
+    }
+
+    // ── 2. Settle Contests ──────────────────────────────────────────────────
+    let contestsSettled = 0;
+    if (iplMatch) {
+      const relatedContests = await Contest.find({
+        status: { $in: ["open", "locked"] },
+        team1: iplMatch.team1,
+        team2: iplMatch.team2,
+      });
+      for (const contest of relatedContests) {
+        const winningTeam = winner.toLowerCase().includes(iplMatch.team1.toLowerCase())
+          ? iplMatch.team1 : iplMatch.team2;
+        const winners  = contest.participants.filter(p => p.team === winningTeam);
+        const totalPot = contest.entryFee * contest.participants.length;
+        if (winners.length === 0) {
+          for (const p of contest.participants) {
+            const u = await User.findOne({ name: p.username });
+            if (u) { u.points += contest.entryFee; await u.save(); }
+          }
+          contest.winner = "refund";
+        } else {
+          const prize     = Math.floor(totalPot / winners.length);
+          const remainder = totalPot - prize * winners.length;
+          for (let i = 0; i < winners.length; i++) {
+            const u = await User.findOne({ name: winners[i].username });
+            if (u) { u.points += prize + (i === 0 ? remainder : 0); await u.save(); }
+          }
+          contest.winner = winners.map(w => w.username).join(", ");
+        }
+        contest.status = "settled";
+        contest.winningTeam = winner.toLowerCase().includes(iplMatch.team1.toLowerCase())
+          ? iplMatch.team1 : iplMatch.team2;
+        await contest.save();
+        contestsSettled++;
+      }
+    }
+
+    // ── 3. Settle Challenges ────────────────────────────────────────────────
+    let challengesSettled = 0;
+    const activeChallenges = await Challenge.find({ matchId, status: "active" });
+    for (const challenge of activeChallenges) {
+      const challengerUser = await User.findOne({ name: challenge.challenger });
+      const opponentUser   = await User.findOne({ name: challenge.opponent });
+      if (!challengerUser || !opponentUser) continue;
+      const totalPot = challenge.wager * 2;
+      let challengeWinner = null;
+      if (winner.toLowerCase().includes(challenge.challengerTeam.toLowerCase())) {
+        challengerUser.points += totalPot;
+        challengeWinner = challenge.challenger;
+        await challengerUser.save();
+      } else if (winner.toLowerCase().includes(challenge.opponentTeam.toLowerCase())) {
+        opponentUser.points += totalPot;
+        challengeWinner = challenge.opponent;
+        await opponentUser.save();
+      } else {
+        challengerUser.points += challenge.wager;
+        opponentUser.points   += challenge.wager;
+        challengeWinner = "draw";
+        await challengerUser.save();
+        await opponentUser.save();
+      }
+      challenge.winner = challengeWinner;
+      challenge.status = "settled";
+      await challenge.save();
+      challengesSettled++;
+    }
+
+    res.json({
+      message: `✅ All settled for ${matchId}! Bets: ${betsSettled}, Contests: ${contestsSettled}, Challenges: ${challengesSettled}`,
+      winner,
+      betsSettled,
+      contestsSettled,
+      challengesSettled,
+    });
+  } catch (err) {
+    console.error("admin/settle-all error:", err.message);
     res.status(500).json({ message: err.message });
   }
 });
