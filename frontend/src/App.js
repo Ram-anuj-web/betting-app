@@ -1,6 +1,6 @@
 import Multiplayer from "./Multiplayer";
 import Matches from "./Matches";
-import Fantasy11 from "./Fantasy11";          // ← NEW
+import Fantasy11 from "./Fantasy11";
 import React, { useState, useEffect } from "react";
 import "./App.css";
 
@@ -33,6 +33,7 @@ export default function App() {
   const [error, setError]                 = useState("");
   const [prefilledMatch, setPrefilledMatch] = useState(null);
   const [matchStatus, setMatchStatus]     = useState(null);
+  const [historyFilter, setHistoryFilter] = useState("all"); // NEW: filter state
 
   // ── Back button ────────────────────────────────────────────────────────────
   useEffect(() => { window.history.pushState({ screen }, "", ""); }, [screen]);
@@ -75,18 +76,22 @@ export default function App() {
 
   const fetchAllHistory = async () => {
     try {
-      const [betsRes, contestsRes, challengesRes] = await Promise.all([
+      const [betsRes, contestsRes, challengesRes, fantasy11Res] = await Promise.all([
         fetch(`${API}/bets/${username}`),
         fetch(`${API}/contests/${username}`),
         fetch(`${API}/challenges/${username}`),
+        fetch(`${API}/fantasy11/my-teams/${username}`),   // ← NEW
       ]);
+
       const betsData       = betsRes.ok       ? await betsRes.json()       : [];
       const contestsData   = contestsRes.ok   ? await contestsRes.json()   : { contests: [] };
       const challengesData = challengesRes.ok ? await challengesRes.json() : { challenges: [] };
+      const fantasy11Data  = fantasy11Res.ok  ? await fantasy11Res.json()  : { teams: [] }; // ← NEW
 
       const bets       = Array.isArray(betsData) ? betsData : [];
       const contests   = contestsData.contests   || [];
       const challenges = challengesData.challenges || [];
+      const f11Teams   = fantasy11Data.teams || []; // ← NEW
 
       const normalizedBets = bets.map(b => ({
         _id: b._id, type: "bet", typeLabel: "Solo Bet", typeEmoji: "🎯",
@@ -131,8 +136,36 @@ export default function App() {
           };
         });
 
-      const merged = [...normalizedBets, ...normalizedContests, ...normalizedChallenges]
-        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      // ── NEW: Normalize Fantasy 11 teams ──────────────────────────────────
+      const normalizedFantasy11 = f11Teams.map(t => {
+        const hasResult = t.fantasyPoints !== null && t.fantasyPoints !== undefined;
+        return {
+          _id: t._id, type: "fantasy11", typeLabel: "Fantasy 11", typeEmoji: "🏏",
+          matchLabel: t.matchLabel || t.matchId,
+          team: `C: ${t.captain || "—"} · VC: ${t.viceCaptain || "—"}`,
+          amount: 0,
+          fantasyPoints: t.fantasyPoints,
+          status: hasResult ? "settled" : t.locked ? "active" : "pending",
+          createdAt: t.createdAt,
+          detail: hasResult
+            ? `${t.fantasyPoints} fantasy pts scored`
+            : t.locked
+              ? "Match in progress"
+              : "Squad saved — awaiting match",
+          players: t.players || [],
+          captain: t.captain,
+          viceCaptain: t.viceCaptain,
+          matchId: t.matchId,
+        };
+      });
+
+      const merged = [
+        ...normalizedBets,
+        ...normalizedContests,
+        ...normalizedChallenges,
+        ...normalizedFantasy11,   // ← NEW
+      ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
       setAllHistory(merged);
     } catch (err) { console.error("Failed to fetch history", err); }
   };
@@ -173,7 +206,6 @@ export default function App() {
     setScreen("bet");
   };
 
-  // ── NEW: Fantasy 11 handler ────────────────────────────────────────────────
   const handleFantasy11 = (matchInfo) => {
     setPrefilledMatch(matchInfo);
     setMatchStatus(null);
@@ -220,11 +252,27 @@ export default function App() {
   };
 
   // ── Helpers ────────────────────────────────────────────────────────────────
-  const statusColor = (s) => ({ won: "#1D9E75", lost: "#E24B4A", draw: "#888780", active: "#7F77DD", cancelled: "#888780" }[s] || "#BA7517");
-  const statusEmoji = (s) => ({ won: "🏆", lost: "😢", draw: "🤝", active: "⚡", cancelled: "❌" }[s] || "⏳");
-  const statusLabel = (s) => ({ won: "WON", lost: "LOST", draw: "DRAW", active: "ACTIVE", cancelled: "CANCELLED" }[s] || "PENDING");
+  const statusColor = (s) => ({
+    won: "#1D9E75", lost: "#E24B4A", draw: "#888780",
+    active: "#7F77DD", cancelled: "#888780", settled: "#3C3489",
+  }[s] || "#BA7517");
+
+  const statusEmoji = (s) => ({
+    won: "🏆", lost: "😢", draw: "🤝", active: "⚡",
+    cancelled: "❌", settled: "✅",
+  }[s] || "⏳");
+
+  const statusLabel = (s) => ({
+    won: "WON", lost: "LOST", draw: "DRAW", active: "ACTIVE",
+    cancelled: "CANCELLED", settled: "SETTLED",
+  }[s] || "PENDING");
 
   const pointsDisplay = (item) => {
+    if (item.type === "fantasy11") {
+      if (item.fantasyPoints !== null && item.fantasyPoints !== undefined)
+        return `${item.fantasyPoints} pts scored`;
+      return item.locked ? "⚡ In progress" : "⏳ Pending";
+    }
     if (item.status === "won") {
       if (item.type === "bet")       return `+${Math.floor(item.amount * (item.odds || 2.0)) - item.amount} pts profit`;
       if (item.type === "contest")   return `+${item.prize - item.amount} pts profit`;
@@ -245,6 +293,19 @@ export default function App() {
   const maxPoints    = Math.max(...leaderboardList().map(p => p.points), 1000);
   const pendingCount = myBets.filter(b => b.status === "pending").length;
   const isBettingLocked = matchStatus === "live" || matchStatus === "completed";
+
+  // ── History filter tabs config ─────────────────────────────────────────────
+  const historyTabs = [
+    { key: "all",       label: "All",         emoji: "",   color: "#7F77DD" },
+    { key: "bet",       label: "Solo Bets",   emoji: "🎯", color: "#BA7517" },
+    { key: "contest",   label: "Contests",    emoji: "🏆", color: "#1D9E75" },
+    { key: "challenge", label: "Challenges",  emoji: "⚔️", color: "#E24B4A" },
+    { key: "fantasy11", label: "Fantasy 11",  emoji: "🏏", color: "#ffd166" },
+  ];
+
+  const filteredHistory = historyFilter === "all"
+    ? allHistory
+    : allHistory.filter(h => h.type === historyFilter);
 
   // ════════════════════════════════════════════════════════════════════════════
   return (
@@ -283,7 +344,6 @@ export default function App() {
             <div className="nav-links">
               <button className={screen === "home"      ? "active" : ""} onClick={() => setScreen("home")}>Home</button>
               <button className={screen === "matches"   ? "active" : ""} onClick={() => setScreen("matches")}>🏏 IPL</button>
-              {/* ── Fantasy 11 nav button ── */}
               <button className={screen === "fantasy11" ? "active" : ""} onClick={() => setScreen("fantasy11")}>🏆 Fantasy 11</button>
               <button className={screen === "leaderboard" ? "active" : ""} onClick={() => { fetchLeaderboard(); setScreen("leaderboard"); }}>Leaderboard</button>
               <button className={screen === "history"   ? "active" : ""} onClick={() => { fetchAllHistory(); setScreen("history"); }}>
@@ -329,32 +389,34 @@ export default function App() {
                 </div>
               </div>
               <div className="sports-grid">
-               {SPORTS.map(sport => (
-  <div
-    key={sport.id}
-    className="sport-card"
-    onClick={() => {
-      if (sport.id === "cricket") {
-        setScreen("matches");
-      } else {
-        alert(`🚧 ${sport.name} — Coming Soon!`);
-      }
-    }}
-    style={sport.id !== "cricket" ? { opacity: 0.6, cursor: "not-allowed" } : {}}
-  >
-    <span className="sport-emoji">{sport.emoji}</span>
-    <span className="sport-name">{sport.name}</span>
-    {sport.id === "cricket"
-      ? <span className="sport-arrow">→</span>
-      : <span style={{ fontSize: 11, color: "#BA7517", fontWeight: 600, marginTop: 4 }}>🚧 Coming Soon</span>
-    }
-  </div>
-))}
+                {SPORTS.map(sport => (
+                  <div
+                    key={sport.id}
+                    className="sport-card"
+                    onClick={() => {
+                      if (sport.id === "cricket") setScreen("matches");
+                      else alert(`🚧 ${sport.name} — Coming Soon!`);
+                    }}
+                    style={sport.id !== "cricket" ? { opacity: 0.6, cursor: "not-allowed" } : {}}
+                  >
+                    <span className="sport-emoji">{sport.emoji}</span>
+                    <span className="sport-name">{sport.name}</span>
+                    {sport.id === "cricket"
+                      ? <span className="sport-arrow">→</span>
+                      : <span style={{ fontSize: 11, color: "#BA7517", fontWeight: 600, marginTop: 4 }}>🚧 Coming Soon</span>
+                    }
+                  </div>
+                ))}
               </div>
               <div className="stats-row">
                 <div className="stat-box"><div className="stat-num">{allHistory.length}</div><div className="stat-label">Total Bets</div></div>
                 <div className="stat-box"><div className="stat-num">{allHistory.filter(b => b.status === "won").length}</div><div className="stat-label">Wins</div></div>
                 <div className="stat-box"><div className="stat-num">{allHistory.filter(b => b.status === "pending" || b.status === "active").length}</div><div className="stat-label">Pending</div></div>
+                {/* NEW: Fantasy 11 stat */}
+                <div className="stat-box">
+                  <div className="stat-num">{allHistory.filter(b => b.type === "fantasy11").length}</div>
+                  <div className="stat-label">Fantasy 11</div>
+                </div>
               </div>
             </div>
           )}
@@ -362,10 +424,7 @@ export default function App() {
           {/* ── IPL MATCHES ── */}
           {screen === "matches" && (
             <div className="screen">
-              <Matches
-                onBetOnMatch={handleBetOnMatch}
-                onFantasy11={handleFantasy11}    
-              />
+              <Matches onBetOnMatch={handleBetOnMatch} onFantasy11={handleFantasy11} />
             </div>
           )}
 
@@ -518,44 +577,113 @@ export default function App() {
           {/* ── HISTORY ── */}
           {screen === "history" && (
             <div className="screen history-screen">
-              <h2 className="screen-title">📜 My Bets</h2>
-              <button className="btn-primary" style={{ marginBottom: 20, padding: "0.5rem 1.5rem" }} onClick={fetchAllHistory}>🔄 Refresh</button>
-              {allHistory.length > 0 && (
-                <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
-                  {[{ label: "All", filter: null, color: "#7F77DD" }, { label: "🎯 Solo", filter: "bet", color: "#BA7517" }, { label: "🏆 Contests", filter: "contest", color: "#1D9E75" }, { label: "⚔️ Challenges", filter: "challenge", color: "#E24B4A" }].map(tab => (
-                    <span key={tab.label} style={{ fontSize: 12, padding: "4px 12px", borderRadius: 99, background: `${tab.color}22`, color: tab.color, border: `1px solid ${tab.color}44`, fontWeight: 600 }}>
-                      {tab.label} ({tab.filter ? allHistory.filter(h => h.type === tab.filter).length : allHistory.length})
-                    </span>
-                  ))}
+              <h2 className="screen-title">📜 My History</h2>
+              <button className="btn-primary" style={{ marginBottom: 16, padding: "0.5rem 1.5rem" }} onClick={fetchAllHistory}>🔄 Refresh</button>
+
+              {/* ── Filter tabs ── */}
+              <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
+                {historyTabs.map(tab => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setHistoryFilter(tab.key)}
+                    style={{
+                      fontSize: 12, padding: "5px 14px", borderRadius: 99, cursor: "pointer",
+                      border: `1px solid ${historyFilter === tab.key ? tab.color : tab.color + "44"}`,
+                      background: historyFilter === tab.key ? tab.color + "22" : "transparent",
+                      color: historyFilter === tab.key ? tab.color : tab.color + "99",
+                      fontWeight: historyFilter === tab.key ? 700 : 400,
+                      transition: "all 0.15s",
+                    }}
+                  >
+                    {tab.emoji} {tab.label} ({tab.key === "all" ? allHistory.length : allHistory.filter(h => h.type === tab.key).length})
+                  </button>
+                ))}
+              </div>
+
+              {filteredHistory.length === 0 ? (
+                <div className="empty-state">
+                  {historyFilter === "fantasy11"
+                    ? "No Fantasy 11 squads yet! Go to 🏏 IPL tab and click Fantasy 11 on a match."
+                    : "No entries yet! Go to 🏏 IPL tab, ⚔️ Multiplayer, or join a contest 🎯"
+                  }
                 </div>
-              )}
-              {allHistory.length === 0 ? (
-                <div className="empty-state">No bets yet! Go to 🏏 IPL tab, ⚔️ Multiplayer, or join a contest 🎯</div>
               ) : (
                 <div className="history-list">
-                  {allHistory.map((item) => (
-                    <div key={`${item.type}-${item._id}`} className={`history-row ${item.status === "won" ? "win" : item.status === "lost" ? "lose" : ""}`} style={{ borderLeft: `3px solid ${statusColor(item.status)}` }}>
+                  {filteredHistory.map((item) => (
+                    <div
+                      key={`${item.type}-${item._id}`}
+                      className={`history-row ${item.status === "won" ? "win" : item.status === "lost" ? "lose" : ""}`}
+                      style={{ borderLeft: `3px solid ${statusColor(item.status)}` }}
+                    >
                       <div className="history-sport">{statusEmoji(item.status)}</div>
                       <div style={{ flex: 1 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                           <span style={{ fontWeight: 600, fontSize: 14 }}>{item.matchLabel}</span>
-                          <span style={{ fontSize: 10, padding: "1px 7px", borderRadius: 99, fontWeight: 600, background: item.type === "bet" ? "#BA751722" : item.type === "contest" ? "#1D9E7522" : "#7F77DD22", color: item.type === "bet" ? "#BA7517" : item.type === "contest" ? "#1D9E75" : "#7F77DD" }}>
+                          <span style={{
+                            fontSize: 10, padding: "1px 7px", borderRadius: 99, fontWeight: 600,
+                            background: item.type === "bet" ? "#BA751722"
+                              : item.type === "contest" ? "#1D9E7522"
+                              : item.type === "fantasy11" ? "#ffd16622"
+                              : "#7F77DD22",
+                            color: item.type === "bet" ? "#BA7517"
+                              : item.type === "contest" ? "#1D9E75"
+                              : item.type === "fantasy11" ? "#8a6a00"
+                              : "#7F77DD",
+                          }}>
                             {item.typeEmoji} {item.typeLabel}
                           </span>
                           {item.type === "bet" && item.odds && item.odds !== 2.0 && (
                             <span style={{ fontSize: 10, padding: "1px 7px", borderRadius: 99, fontWeight: 600, background: "#E1F5EE", color: "#085041", border: "0.5px solid #5DCAA5" }}>{item.odds}x odds</span>
                           )}
                         </div>
-                        <div style={{ fontSize: 12, opacity: 0.7, marginTop: 2 }}>
-                          Picked: <strong>{item.team}</strong>
-                          {item.type === "contest" && item.contestName && <span style={{ marginLeft: 6, opacity: 0.6 }}>· {item.contestName}</span>}
-                          {item.type === "challenge" && item.opponent && <span style={{ marginLeft: 6, opacity: 0.6 }}>· vs {item.opponent}</span>}
-                        </div>
-                        {item.detail && <div style={{ fontSize: 11, opacity: 0.5, marginTop: 1 }}>{item.detail}</div>}
+
+                        {/* ── Fantasy 11 specific detail ── */}
+                        {item.type === "fantasy11" ? (
+                          <div style={{ fontSize: 12, marginTop: 4 }}>
+                            <span style={{ opacity: 0.7 }}>{item.team}</span>
+                            {item.players?.length > 0 && (
+                              <span style={{ marginLeft: 8, opacity: 0.5, fontSize: 11 }}>
+                                · {item.players.length} players selected
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: 12, opacity: 0.7, marginTop: 2 }}>
+                            Picked: <strong>{item.team}</strong>
+                            {item.type === "contest" && item.contestName && <span style={{ marginLeft: 6, opacity: 0.6 }}>· {item.contestName}</span>}
+                            {item.type === "challenge" && item.opponent && <span style={{ marginLeft: 6, opacity: 0.6 }}>· vs {item.opponent}</span>}
+                          </div>
+                        )}
+
+                        {item.detail && (
+                          <div style={{
+                            fontSize: 11,
+                            marginTop: 3,
+                            color: item.type === "fantasy11" && item.fantasyPoints !== null
+                              ? "#ffd166"
+                              : "rgba(255,255,255,0.4)",
+                            fontWeight: item.type === "fantasy11" && item.fantasyPoints !== null ? 700 : 400,
+                          }}>
+                            {item.type === "fantasy11" && item.fantasyPoints !== null ? "🏏 " : ""}{item.detail}
+                          </div>
+                        )}
                       </div>
+
                       <div style={{ textAlign: "right" }}>
-                        <div style={{ color: statusColor(item.status), fontWeight: 600, fontSize: 14, marginBottom: 4 }}>{pointsDisplay(item)}</div>
-                        <div className="history-badge" style={{ background: `${statusColor(item.status)}22`, color: statusColor(item.status) }}>{statusLabel(item.status)}</div>
+                        <div style={{
+                          color: item.type === "fantasy11"
+                            ? (item.fantasyPoints !== null ? "#ffd166" : "#888780")
+                            : statusColor(item.status),
+                          fontWeight: 600, fontSize: 14, marginBottom: 4,
+                        }}>
+                          {pointsDisplay(item)}
+                        </div>
+                        <div className="history-badge" style={{
+                          background: `${statusColor(item.status)}22`,
+                          color: statusColor(item.status),
+                        }}>
+                          {statusLabel(item.status)}
+                        </div>
                       </div>
                     </div>
                   ))}
