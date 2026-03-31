@@ -81,21 +81,6 @@ const contestSchema = new mongoose.Schema({
   password: { type: String, default: null },
   createdAt: { type: Date, default: Date.now },
 });
-
-// ─── Fantasy11Team schema — now stores cricbuzzId for breakdown lookup ─────────
-const fantasy11TeamSchema = new mongoose.Schema({
-  username:    { type: String, required: true },
-  matchId:     { type: String, required: true },
-  matchLabel:  { type: String },
-  players:     [{ type: String }],
-  captain:     { type: String },
-  viceCaptain: { type: String },
-  fantasyPoints: { type: Number, default: null },
-  locked:      { type: Boolean, default: false },
-  cricbuzzId:  { type: Number, default: null },   // ← NEW: stored when match is settled
-  createdAt:   { type: Date, default: Date.now },
-});
-
 const User        = mongoose.model("User", userSchema);
 const Bet         = mongoose.model("Bet", betSchema);
 const Challenge   = mongoose.model("Challenge", challengeSchema);
