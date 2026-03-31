@@ -7,11 +7,10 @@ const router   = express.Router();
 const mongoose = require("mongoose");
 
 // ── Schema ────────────────────────────────────────────────────────────────────
-const { Fantasy11Team } = require("./models");
-Fantasy11TeamSchema.index({ username: 1, matchId: 1 }, { unique: true });
+const mongoose = require("mongoose");
 
-const Fantasy11Team = mongoose.models.Fantasy11Team ||
-  mongoose.model("Fantasy11Team", Fantasy11TeamSchema);
+// ── Model ─────────────────────────────────────────────────────────────────────
+const { Fantasy11Team } = require("./models");
 
 // ── POST /fantasy11/team  — save or update a team ────────────────────────────
 router.post("/team", async (req, res) => {
