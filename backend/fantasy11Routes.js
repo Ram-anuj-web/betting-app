@@ -1,15 +1,9 @@
 // ============================================================
-//  fantasy11Routes.js  —  bulletproof version v3
+//  fantasy11Routes.js  —  bulletproof version v4
 //  Usage:  app.use('/fantasy11', require('./fantasy11Routes'))
 // ============================================================
-const express  = require("express");
-const router   = express.Router();
-const mongoose = require("mongoose");
-
-// ── Schema ────────────────────────────────────────────────────────────────────
-const mongoose = require("mongoose");
-
-// ── Model ─────────────────────────────────────────────────────────────────────
+const express = require("express");
+const router  = express.Router();
 const { Fantasy11Team } = require("./models");
 
 // ── POST /fantasy11/team  — save or update a team ────────────────────────────
@@ -67,10 +61,7 @@ router.post("/team", async (req, res) => {
 
   } catch (err) {
     console.error("[fantasy11/team POST] Error:", err.message, "code:", err.code);
-    return res.status(500).json({
-      message: `Server error: ${err.message}`,
-      code: err.code || null,
-    });
+    return res.status(500).json({ message: `Server error: ${err.message}`, code: err.code || null });
   }
 });
 
@@ -86,8 +77,7 @@ router.get("/team/:username/:matchId", async (req, res) => {
   }
 });
 
-// ── GET /fantasy11/my-teams/:username  ← NEW ─────────────────────────────────
-// Returns all Fantasy 11 teams created by a user across all matches
+// ── GET /fantasy11/my-teams/:username ────────────────────────────────────────
 router.get("/my-teams/:username", async (req, res) => {
   try {
     const teams = await Fantasy11Team
