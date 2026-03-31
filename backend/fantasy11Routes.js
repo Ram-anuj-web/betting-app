@@ -7,19 +7,7 @@ const router   = express.Router();
 const mongoose = require("mongoose");
 
 // ── Schema ────────────────────────────────────────────────────────────────────
-const Fantasy11TeamSchema = new mongoose.Schema({
-  username:      { type: String, required: true },
-  matchId:       { type: String, required: true },
-  matchLabel:    { type: String, default: "" },
-  players:       { type: [String], default: [] },
-  captain:       { type: String, default: "" },
-  viceCaptain:   { type: String, default: "" },
-  locked:        { type: Boolean, default: false },
-  fantasyPoints: { type: Number,  default: null },
-  createdAt:     { type: Date,    default: Date.now },
-  updatedAt:     { type: Date,    default: Date.now },
-});
-
+const { Fantasy11Team } = require("./models");
 Fantasy11TeamSchema.index({ username: 1, matchId: 1 }, { unique: true });
 
 const Fantasy11Team = mongoose.models.Fantasy11Team ||
