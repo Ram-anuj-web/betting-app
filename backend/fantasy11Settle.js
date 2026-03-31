@@ -17,23 +17,21 @@ const RAPIDAPI_HOST = "cricbuzz-cricket.p.rapidapi.com";
 
 // ── Reuse existing models (already registered by server.js) ──────────────────
 // LINE 19 - REPLACE WITH:
-let Fantasy11Team;
-try {
-  Fantasy11Team = mongoose.model("Fantasy11Team");
-} catch (e) {
-  Fantasy11Team = mongoose.model("Fantasy11Team", new mongoose.Schema({
+// ── Reuse existing models (already registered by fantasy11Routes.js) ──────────
+const Fantasy11Team = mongoose.models.Fantasy11Team ||
+  mongoose.model("Fantasy11Team", new mongoose.Schema({
     username:      { type: String, required: true },
     matchId:       { type: String, required: true },
-    matchLabel:    { type: String },
+    matchLabel:    { type: String, default: "" },
     players:       [{ type: String }],
-    captain:       { type: String },
-    viceCaptain:   { type: String },
+    captain:       { type: String, default: "" },
+    viceCaptain:   { type: String, default: "" },
     fantasyPoints: { type: Number, default: null },
     locked:        { type: Boolean, default: false },
     cricbuzzId:    { type: Number, default: null },
     createdAt:     { type: Date, default: Date.now },
   }));
-}
+
 
 // ── IPL match list (matches server.js exactly) ───────────────────────────────
 const IPL_MATCHES = [
