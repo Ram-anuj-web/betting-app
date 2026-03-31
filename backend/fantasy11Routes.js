@@ -1,5 +1,5 @@
 // ============================================================
-//  fantasy11Routes.js  —  bulletproof version v2
+//  fantasy11Routes.js  —  bulletproof version v3
 //  Usage:  app.use('/fantasy11', require('./fantasy11Routes'))
 // ============================================================
 const express  = require("express");
@@ -30,7 +30,6 @@ router.post("/team", async (req, res) => {
   try {
     const { username, matchId, matchLabel, players, captain, viceCaptain } = req.body;
 
-    // ── Validation ─────────────────────────────────────────────────────────
     if (!username || typeof username !== "string")
       return res.status(400).json({ message: "Username is required." });
     if (!matchId || typeof matchId !== "string")
@@ -50,13 +49,10 @@ router.post("/team", async (req, res) => {
     if (!players.includes(viceCaptain))
       return res.status(400).json({ message: `Vice-captain "${viceCaptain}" is not in your squad.` });
 
-    // ── Check lock ──────────────────────────────────────────────────────────
     const existing = await Fantasy11Team.findOne({ username, matchId }).lean();
     if (existing && existing.locked)
       return res.status(403).json({ message: "Team is locked — match has already started." });
 
-    // ── Safe upsert using collection-level findOneAndUpdate ─────────────────
-    // This bypasses Mongoose middleware issues and directly uses the driver
     const now = new Date();
     await Fantasy11Team.collection.findOneAndUpdate(
       { username, matchId },
@@ -79,7 +75,6 @@ router.post("/team", async (req, res) => {
       { upsert: true }
     );
 
-    // Fetch the saved doc to return
     const savedTeam = await Fantasy11Team.findOne({ username, matchId }).lean();
     return res.json({ success: true, team: savedTeam });
 
@@ -100,6 +95,21 @@ router.get("/team/:username/:matchId", async (req, res) => {
     return res.json({ team: team || null });
   } catch (err) {
     console.error("[fantasy11/team GET] Error:", err.message);
+    return res.status(500).json({ message: `Server error: ${err.message}` });
+  }
+});
+
+// ── GET /fantasy11/my-teams/:username  ← NEW ─────────────────────────────────
+// Returns all Fantasy 11 teams created by a user across all matches
+router.get("/my-teams/:username", async (req, res) => {
+  try {
+    const teams = await Fantasy11Team
+      .find({ username: req.params.username })
+      .sort({ createdAt: -1 })
+      .lean();
+    return res.json({ teams });
+  } catch (err) {
+    console.error("[fantasy11/my-teams GET] Error:", err.message);
     return res.status(500).json({ message: `Server error: ${err.message}` });
   }
 });
