@@ -81,12 +81,12 @@ const contestSchema = new mongoose.Schema({
   password: { type: String, default: null },
   createdAt: { type: Date, default: Date.now },
 });
-const User        = mongoose.model("User", userSchema);
-const Bet         = mongoose.model("Bet", betSchema);
-const Challenge   = mongoose.model("Challenge", challengeSchema);
-const Contest     = mongoose.model("Contest", contestSchema);
-// Register Fantasy11Team so fantasy11Settle.js can reuse it
-const Fantasy11Team = mongoose.model("Fantasy11Team", fantasy11TeamSchema);
+
+const User      = mongoose.model("User", userSchema);
+const Bet       = mongoose.model("Bet", betSchema);
+const Challenge = mongoose.model("Challenge", challengeSchema);
+const Contest   = mongoose.model("Contest", contestSchema);
+// Fantasy11Team is handled in models.js — do not register it here
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 app.post("/register", async (req, res) => {
