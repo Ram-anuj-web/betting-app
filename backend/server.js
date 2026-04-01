@@ -88,6 +88,84 @@ const Challenge = mongoose.model("Challenge", challengeSchema);
 const Contest   = mongoose.model("Contest", contestSchema);
 // Fantasy11Team is handled in models.js — do not register it here
 
+// ─── Fantasy11 Contest Settlement Helper ──────────────────────────────────────
+// Detects if a contest is Fantasy11 mode (all participants have team="fantasy11")
+// and settles by highest fantasy points instead of team pick.
+async function settleContest(contest, winnerTeamName, totalPot) {
+  const isF11 = contest.participants.every(p => p.team === "fantasy11");
+
+  let winners = [];
+  let winningTeam = winnerTeamName;
+
+  if (isF11) {
+    // Get Fantasy11Team model safely
+    const Fantasy11Team = mongoose.models.Fantasy11Team;
+    if (!Fantasy11Team) {
+      // Fallback: refund everyone
+      console.log(`Fantasy11Team model not found for contest ${contest._id}, refunding`);
+      for (const p of contest.participants) {
+        const u = await User.findOne({ name: p.username });
+        if (u) { u.points += contest.entryFee; await u.save(); }
+      }
+      contest.status = "settled";
+      contest.winningTeam = "refund";
+      contest.winner = "refund";
+      await contest.save();
+      return;
+    }
+
+    // Find fantasy points for all participants
+    const matchIds = [contest.matchId, `ipl-${contest.matchId}`, contest.matchId.replace("ipl", "ipl-")];
+    const f11Teams = await Fantasy11Team.find({
+      username: { $in: contest.participants.map(p => p.username) },
+      matchId: { $in: matchIds },
+      fantasyPoints: { $ne: null },
+    }).lean();
+
+    if (f11Teams.length === 0) {
+      console.log(`No fantasy points found for contest "${contest.name}", refunding all`);
+      for (const p of contest.participants) {
+        const u = await User.findOne({ name: p.username });
+        if (u) { u.points += contest.entryFee; await u.save(); }
+      }
+      contest.status = "settled";
+      contest.winningTeam = "no_scores";
+      contest.winner = "refund";
+      await contest.save();
+      return;
+    }
+
+    // Find highest scorer(s)
+    const maxPts = Math.max(...f11Teams.map(t => t.fantasyPoints));
+    const topTeams = f11Teams.filter(t => t.fantasyPoints === maxPts);
+    winners = contest.participants.filter(p => topTeams.some(t => t.username === p.username));
+    winningTeam = `Fantasy11 (${maxPts} pts)`;
+    console.log(`Fantasy11 contest "${contest.name}": top score ${maxPts} pts, winners: ${winners.map(w => w.username).join(", ")}`);
+  } else {
+    winners = contest.participants.filter(p => p.team === winnerTeamName);
+  }
+
+  if (winners.length === 0) {
+    for (const p of contest.participants) {
+      const u = await User.findOne({ name: p.username });
+      if (u) { u.points += contest.entryFee; await u.save(); }
+    }
+    contest.winner = "refund";
+  } else {
+    const prize = Math.floor(totalPot / winners.length);
+    const remainder = totalPot - prize * winners.length;
+    for (let i = 0; i < winners.length; i++) {
+      const u = await User.findOne({ name: winners[i].username });
+      if (u) { u.points += prize + (i === 0 ? remainder : 0); await u.save(); }
+    }
+    contest.winner = winners.map(w => w.username).join(", ");
+  }
+
+  contest.status = "settled";
+  contest.winningTeam = winningTeam;
+  await contest.save();
+}
+
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 app.post("/register", async (req, res) => {
   try {
@@ -126,28 +204,18 @@ app.post("/bet", async (req, res) => {
   try {
     const { name, amount, matchId, matchLabel, team, odds } = req.body;
     const user = await User.findOne({ name });
-
     if (!user || amount > user.points || amount <= 0)
       return res.status(400).json({ message: "Invalid bet" });
-
     const existingBet = await Bet.findOne({ username: name, matchId, status: "pending" });
     if (existingBet)
       return res.status(400).json({ message: "You already have a pending bet on this match!" });
-
     user.points -= amount;
     user.lockedPoints = (user.lockedPoints || 0) + amount;
     await user.save();
-
     const betOdds = (odds && odds > 1) ? parseFloat(odds.toFixed(2)) : 2.0;
     const bet = new Bet({ username: name, matchId, matchLabel, team, amount, odds: betOdds });
     await bet.save();
-
-    res.json({
-      message: "Bet placed! Points locked until match ends.",
-      points: user.points,
-      lockedPoints: user.lockedPoints,
-      bet,
-    });
+    res.json({ message: "Bet placed! Points locked until match ends.", points: user.points, lockedPoints: user.lockedPoints, bet });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });
@@ -257,18 +325,13 @@ async function fetchIPLOdds() {
   const now = Date.now();
   if (oddsCache.data && now - oddsCache.fetchedAt < 30 * 60 * 1000) return oddsCache.data;
   try {
-    const res = await fetch(
-      `https://api.the-odds-api.com/v4/sports/cricket_ipl/odds/?apiKey=${ODDS_API_KEY}&regions=eu&markets=h2h&oddsFormat=decimal`
-    );
+    const res = await fetch(`https://api.the-odds-api.com/v4/sports/cricket_ipl/odds/?apiKey=${ODDS_API_KEY}&regions=eu&markets=h2h&oddsFormat=decimal`);
     if (!res.ok) { console.error("Odds API error:", res.status); return oddsCache.data || []; }
     const data = await res.json();
     oddsCache = { data: data || [], fetchedAt: now };
     console.log(`Odds fetched: ${data.length} matches`);
     return data;
-  } catch (err) {
-    console.error("Odds fetch failed:", err.message);
-    return oddsCache.data || [];
-  }
+  } catch (err) { console.error("Odds fetch failed:", err.message); return oddsCache.data || []; }
 }
 
 function findOddsForMatch(oddsData, team1, team2) {
@@ -277,11 +340,9 @@ function findOddsForMatch(oddsData, team1, team2) {
   const aliases2 = TEAM_NAME_MAP[team2] || [team2];
   const match = oddsData.find(m => {
     if (!m.home_team || !m.away_team) return false;
-    const home = m.home_team.toLowerCase();
-    const away = m.away_team.toLowerCase();
-    const hasTeam1 = aliases1.some(a => home.includes(a.toLowerCase()) || away.includes(a.toLowerCase()));
-    const hasTeam2 = aliases2.some(a => home.includes(a.toLowerCase()) || away.includes(a.toLowerCase()));
-    return hasTeam1 && hasTeam2;
+    const home = m.home_team.toLowerCase(), away = m.away_team.toLowerCase();
+    return aliases1.some(a => home.includes(a.toLowerCase()) || away.includes(a.toLowerCase())) &&
+           aliases2.some(a => home.includes(a.toLowerCase()) || away.includes(a.toLowerCase()));
   });
   if (!match) return null;
   const team1Odds = [], team2Odds = [];
@@ -290,10 +351,8 @@ function findOddsForMatch(oddsData, team1, team2) {
       if (market.key !== "h2h") continue;
       for (const outcome of (market.outcomes || [])) {
         const name = outcome.name.toLowerCase();
-        const isTeam1 = aliases1.some(a => name.includes(a.toLowerCase()));
-        const isTeam2 = aliases2.some(a => name.includes(a.toLowerCase()));
-        if (isTeam1) team1Odds.push(outcome.price);
-        if (isTeam2) team2Odds.push(outcome.price);
+        if (aliases1.some(a => name.includes(a.toLowerCase()))) team1Odds.push(outcome.price);
+        if (aliases2.some(a => name.includes(a.toLowerCase()))) team2Odds.push(outcome.price);
       }
     }
   }
@@ -310,14 +369,9 @@ app.get("/odds/:matchId", async (req, res) => {
     if (!iplMatch) return res.status(404).json({ message: "Match not found" });
     const oddsData = await fetchIPLOdds();
     const odds = findOddsForMatch(oddsData, iplMatch.team1, iplMatch.team2);
-    if (!odds) {
-      return res.json({ matchId, team1: iplMatch.team1, team2: iplMatch.team2, odds: { [iplMatch.team1]: 1.9, [iplMatch.team2]: 1.9 }, source: "fallback" });
-    }
+    if (!odds) return res.json({ matchId, team1: iplMatch.team1, team2: iplMatch.team2, odds: { [iplMatch.team1]: 1.9, [iplMatch.team2]: 1.9 }, source: "fallback" });
     res.json({ matchId, team1: iplMatch.team1, team2: iplMatch.team2, odds, source: "live" });
-  } catch (err) {
-    console.error("odds error:", err.message);
-    res.status(500).json({ message: "Failed to fetch odds" });
-  }
+  } catch (err) { console.error("odds error:", err.message); res.status(500).json({ message: "Failed to fetch odds" }); }
 });
 
 app.get("/odds-bulk", async (req, res) => {
@@ -331,10 +385,7 @@ app.get("/odds-bulk", async (req, res) => {
       result[`ipl-${match.id}`] = odds || { [match.team1]: 1.9, [match.team2]: 1.9 };
     }
     res.json({ odds: result, source: oddsData.length > 0 ? "live" : "fallback" });
-  } catch (err) {
-    console.error("odds-bulk error:", err.message);
-    res.status(500).json({ message: "Failed to fetch bulk odds" });
-  }
+  } catch (err) { console.error("odds-bulk error:", err.message); res.status(500).json({ message: "Failed to fetch bulk odds" }); }
 });
 
 function getMatchesWithStatus() {
@@ -362,19 +413,12 @@ app.get("/live-scores", async (req, res) => {
     const apiData = await apiRes.json();
     if (!apiData.data) return res.json({ matches: todayMatches, message: "Live data unavailable — showing schedule only.", apiStatus: apiData.status || "unknown" });
     const enriched = todayMatches.map(match => {
-      const apiMatch = apiData.data.find(m =>
-        m.teams &&
-        m.teams.some(t => t.toUpperCase().includes(match.team1.toUpperCase())) &&
-        m.teams.some(t => t.toUpperCase().includes(match.team2.toUpperCase()))
-      );
+      const apiMatch = apiData.data.find(m => m.teams && m.teams.some(t => t.toUpperCase().includes(match.team1.toUpperCase())) && m.teams.some(t => t.toUpperCase().includes(match.team2.toUpperCase())));
       if (!apiMatch) return { ...match, liveData: null };
       return { ...match, liveData: { matchStarted: apiMatch.matchStarted || false, matchEnded: apiMatch.matchEnded || false, matchWinner: apiMatch.matchWinner || null, status: apiMatch.status || null, score: apiMatch.score || [], teams: apiMatch.teams || [], dateTimeGMT: apiMatch.dateTimeGMT || null } };
     });
     res.json({ matches: enriched });
-  } catch (err) {
-    console.error("live-scores error:", err.message);
-    res.status(500).json({ message: "Failed to fetch live scores", error: err.message });
-  }
+  } catch (err) { console.error("live-scores error:", err.message); res.status(500).json({ message: "Failed to fetch live scores", error: err.message }); }
 });
 
 async function checkAndSettleBets() {
@@ -404,9 +448,7 @@ async function checkAndSettleBets() {
             const won = winner.toLowerCase().includes(bet.team.toLowerCase());
             if (won) { const multiplier = bet.odds && bet.odds > 1 ? bet.odds : 2.0; user.points += Math.floor(bet.amount * multiplier); }
             user.lockedPoints = Math.max(0, (user.lockedPoints || 0) - bet.amount);
-            await user.save();
-            bet.status = won ? "won" : "lost";
-            await bet.save();
+            await user.save(); bet.status = won ? "won" : "lost"; await bet.save();
             console.log(`Settled bet for ${bet.username} on ${matchId}: ${bet.status}`);
           }
         } catch (err) { console.error(`Error settling IPL match ${matchId}:`, err.message); }
@@ -425,9 +467,7 @@ async function checkAndSettleBets() {
             const won = winner.toLowerCase().includes(bet.team.toLowerCase());
             if (won) { const multiplier = bet.odds && bet.odds > 1 ? bet.odds : 2.0; user.points += Math.floor(bet.amount * multiplier); }
             user.lockedPoints = Math.max(0, (user.lockedPoints || 0) - bet.amount);
-            await user.save();
-            bet.status = won ? "won" : "lost";
-            await bet.save();
+            await user.save(); bet.status = won ? "won" : "lost"; await bet.save();
           }
         } catch (err) { console.error(`Error settling match ${matchId}:`, err.message); }
       }
@@ -457,20 +497,10 @@ async function checkAndSettleContests() {
       if (new Date() < endTime) continue;
       const apiMatch = apiData.data.find(m => m.matchEnded && m.teams && m.teams.some(t => t.toUpperCase().includes(contest.team1.toUpperCase())) && m.teams.some(t => t.toUpperCase().includes(contest.team2.toUpperCase())));
       if (!apiMatch || !apiMatch.matchWinner) continue;
-      const winningTeam = apiMatch.matchWinner.toUpperCase().includes(contest.team1.toUpperCase()) ? contest.team1 : contest.team2;
-      const winners = contest.participants.filter(p => p.team === winningTeam);
+      const winnerTeam = apiMatch.matchWinner.toUpperCase().includes(contest.team1.toUpperCase()) ? contest.team1 : contest.team2;
       const totalPot = contest.entryFee * contest.participants.length;
-      if (winners.length === 0) {
-        for (const p of contest.participants) { const u = await User.findOne({ name: p.username }); if (u) { u.points += contest.entryFee; await u.save(); } }
-        contest.status = "settled"; contest.winningTeam = winningTeam; contest.winner = "refund";
-      } else {
-        const prize = Math.floor(totalPot / winners.length);
-        const remainder = totalPot - prize * winners.length;
-        for (let i = 0; i < winners.length; i++) { const u = await User.findOne({ name: winners[i].username }); if (u) { u.points += prize + (i === 0 ? remainder : 0); await u.save(); } }
-        contest.status = "settled"; contest.winningTeam = winningTeam; contest.winner = winners.map(w => w.username).join(", ");
-      }
-      await contest.save();
-      console.log(`Contest "${contest.name}" auto-settled. Winner team: ${winningTeam}`);
+      await settleContest(contest, winnerTeam, totalPot);
+      console.log(`Contest "${contest.name}" auto-settled.`);
     }
   } catch (err) { console.error("checkAndSettleContests error:", err.message); }
 }
@@ -502,13 +532,10 @@ app.post("/admin/settle-match", async (req, res) => {
       if (iplMatch) {
         const relatedContests = await Contest.find({ status: { $in: ["open", "locked"] }, team1: iplMatch.team1, team2: iplMatch.team2 });
         for (const contest of relatedContests) {
-          const winningTeam = winner.toLowerCase().includes(iplMatch.team1.toLowerCase()) ? iplMatch.team1 : iplMatch.team2;
-          const winners = contest.participants.filter(p => p.team === winningTeam);
+          const winnerTeam = winner.toLowerCase().includes(iplMatch.team1.toLowerCase()) ? iplMatch.team1 : iplMatch.team2;
           const totalPot = contest.entryFee * contest.participants.length;
-          if (winners.length === 0) { for (const p of contest.participants) { const u = await User.findOne({ name: p.username }); if (u) { u.points += contest.entryFee; await u.save(); } } contest.winner = "refund"; }
-          else { const prize = Math.floor(totalPot / winners.length); const remainder = totalPot - prize * winners.length; for (let i = 0; i < winners.length; i++) { const u = await User.findOne({ name: winners[i].username }); if (u) { u.points += prize + (i === 0 ? remainder : 0); await u.save(); } } contest.winner = winners.map(w => w.username).join(", "); }
-          contest.status = "settled"; contest.winningTeam = winner.toLowerCase().includes(iplMatch.team1.toLowerCase()) ? iplMatch.team1 : iplMatch.team2;
-          await contest.save(); contestsSettled++;
+          await settleContest(contest, winnerTeam, totalPot);
+          contestsSettled++;
         }
       }
     }
@@ -560,6 +587,7 @@ app.post("/admin/settle-all", async (req, res) => {
     const iplId = parseInt(matchId.replace("ipl-", ""));
     const iplMatch = IPL_MATCHES.find(m => m.id === iplId);
 
+    // 1. Settle Bets
     const pendingBets = await Bet.find({ matchId, status: "pending" });
     let betsSettled = 0;
     for (const bet of pendingBets) {
@@ -571,20 +599,19 @@ app.post("/admin/settle-all", async (req, res) => {
       await user.save(); bet.status = won ? "won" : "lost"; await bet.save(); betsSettled++;
     }
 
+    // 2. Settle Contests (uses settleContest helper — handles Fantasy11 automatically)
     let contestsSettled = 0;
     if (iplMatch) {
       const relatedContests = await Contest.find({ status: { $in: ["open", "locked"] }, team1: iplMatch.team1, team2: iplMatch.team2 });
       for (const contest of relatedContests) {
-        const winningTeam = winner.toLowerCase().includes(iplMatch.team1.toLowerCase()) ? iplMatch.team1 : iplMatch.team2;
-        const winners = contest.participants.filter(p => p.team === winningTeam);
+        const winnerTeam = winner.toLowerCase().includes(iplMatch.team1.toLowerCase()) ? iplMatch.team1 : iplMatch.team2;
         const totalPot = contest.entryFee * contest.participants.length;
-        if (winners.length === 0) { for (const p of contest.participants) { const u = await User.findOne({ name: p.username }); if (u) { u.points += contest.entryFee; await u.save(); } } contest.winner = "refund"; }
-        else { const prize = Math.floor(totalPot / winners.length); const remainder = totalPot - prize * winners.length; for (let i = 0; i < winners.length; i++) { const u = await User.findOne({ name: winners[i].username }); if (u) { u.points += prize + (i === 0 ? remainder : 0); await u.save(); } } contest.winner = winners.map(w => w.username).join(", "); }
-        contest.status = "settled"; contest.winningTeam = winner.toLowerCase().includes(iplMatch.team1.toLowerCase()) ? iplMatch.team1 : iplMatch.team2;
-        await contest.save(); contestsSettled++;
+        await settleContest(contest, winnerTeam, totalPot);
+        contestsSettled++;
       }
     }
 
+    // 3. Settle Challenges
     let challengesSettled = 0;
     const activeChallenges = await Challenge.find({ matchId, status: "active" });
     for (const challenge of activeChallenges) {
@@ -740,20 +767,9 @@ app.post("/contest/settle", async (req, res) => {
     if (!contest) return res.status(404).json({ message: "Contest not found" });
     if (contest.status === "settled") return res.status(400).json({ message: "Already settled" });
     if (contest.createdBy !== settledBy) return res.status(403).json({ message: "Only the creator can settle" });
-    const winners = contest.participants.filter(p => p.team === winningTeam);
     const totalPot = contest.entryFee * contest.participants.length;
-    if (winners.length === 0) {
-      for (const p of contest.participants) { const u = await User.findOne({ name: p.username }); if (u) { u.points += contest.entryFee; await u.save(); } }
-      contest.status = "settled"; contest.winningTeam = winningTeam; contest.winner = "refund";
-      await contest.save();
-      return res.json({ message: "No winners — everyone refunded.", contest });
-    }
-    const prize = Math.floor(totalPot / winners.length);
-    const remainder = totalPot - prize * winners.length;
-    for (let i = 0; i < winners.length; i++) { const u = await User.findOne({ name: winners[i].username }); if (u) { u.points += prize + (i === 0 ? remainder : 0); await u.save(); } }
-    contest.status = "settled"; contest.winningTeam = winningTeam; contest.winner = winners.map(w => w.username).join(", ");
-    await contest.save();
-    res.json({ message: `${winners.length} winner(s)! Prize: ${prize} pts each.`, winners: winners.map(w => w.username), prize, totalPot, contest });
+    await settleContest(contest, winningTeam, totalPot);
+    res.json({ message: `Contest settled!`, contest });
   } catch (err) { console.error(err); res.status(500).json({ message: "Server error" }); }
 });
 
