@@ -10,16 +10,12 @@
 
 const express  = require("express");
 const router   = express.Router();
-const mongoose = require("mongoose");
 
 const RAPIDAPI_KEY  = "560fafa943msh399baabd0adcfd8p1cef77jsndc70656fbd00";
 const RAPIDAPI_HOST = "cricbuzz-cricket.p.rapidapi.com";
 
-// ── Reuse existing models (already registered by server.js) ──────────────────
-// LINE 19 - REPLACE WITH:
-// ── Reuse existing models (already registered by fantasy11Routes.js) ──────────
+// ── Reuse existing model from models.js ──────────────────────────────────────
 const { Fantasy11Team } = require("./models");
-
 
 // ── IPL match list (matches server.js exactly) ───────────────────────────────
 const IPL_MATCHES = [
@@ -95,23 +91,21 @@ const IPL_MATCHES = [
   { id: 70, team1: "KKR",  team2: "DC",   date: "2026-05-24" },
 ];
 
-// ── In-memory cricbuzzId registry (updated via /register-match) ───────────────
-// Pre-fill known IDs here as matches get played
+// ── Cricbuzz ID registry — CORRECTED IDs ─────────────────────────────────────
 const cricbuzzRegistry = {
-  "ipl-1": null,  // RCB vs SRH - fill when known
-  "ipl-2": 149638, // MI vs KKR
-  "ipl-3": 149640, // RR vs CSK
-  "ipl-4": null,  // PBKS vs GT - fill when known
-  // Add more as the season progresses
+  "ipl-1": 149618,  // RCB vs SRH
+  "ipl-2": 149629,  // MI vs KKR
+  "ipl-3": 149640,  // RR vs CSK
+  "ipl-4": 149651,  // PBKS vs GT
+  // Add more here as matches get played
 };
 
 function getCricbuzzId(matchId) {
-  // Normalize matchId
   const normalized = matchId.startsWith("ipl-") ? matchId : `ipl-${matchId.replace("ipl", "")}`;
   return cricbuzzRegistry[normalized] || null;
 }
 
-// ── Fantasy Points System (standard IPL fantasy rules) ───────────────────────
+// ── Fantasy Points System ─────────────────────────────────────────────────────
 function calcBattingPoints(bat) {
   let pts = 0;
   const runs   = parseInt(bat.runs  || 0);
@@ -124,7 +118,7 @@ function calcBattingPoints(bat) {
   pts += fours;
   pts += sixes * 2;
 
-  if (runs >= 100) pts += 16;
+  if (runs >= 100)     pts += 16;
   else if (runs >= 50) pts += 8;
 
   if (isDuck) pts -= 2;
@@ -182,7 +176,7 @@ async function fetchScorecard(cricbuzzMatchId) {
   return await res.json();
 }
 
-// ── Parse scorecard → player stats map ───────────────────────────────────────
+// ── Parse scorecard — supports BOTH Cricbuzz response formats ────────────────
 function parseScorecard(scorecard) {
   const playerStats = {};
 
@@ -196,35 +190,68 @@ function parseScorecard(scorecard) {
     return key;
   }
 
-  const innings = Array.isArray(scorecard) ? scorecard : (scorecard.scoreCard || []);
+  // Try both key names Cricbuzz uses
+  const innings = scorecard.scorecard || scorecard.scoreCard || (Array.isArray(scorecard) ? scorecard : []);
 
   for (const inning of innings) {
+
+    // ── Format A: direct batsman[] / bowler[] arrays (current API) ───────
+    if (Array.isArray(inning.batsman)) {
+      for (const b of inning.batsman) {
+        const name = b.name || b.nickname;
+        if (!name) continue;
+        const pKey = ensurePlayer(name);
+        playerStats[pKey].batting = {
+          runs:  b.runs  || 0,
+          balls: b.balls || 0,
+          fours: b.fours || 0,
+          sixes: b.sixes || 0,
+          isOut: b.outdec !== "not out" && b.outdec !== "",
+        };
+      }
+    }
+
+    if (Array.isArray(inning.bowler)) {
+      for (const b of inning.bowler) {
+        const name = b.name || b.nickname;
+        if (!name) continue;
+        const pKey = ensurePlayer(name);
+        playerStats[pKey].bowling = {
+          overs:   b.overs   || 0,
+          wickets: b.wickets || 0,
+          runs:    b.runs    || 0,
+          maidens: b.maidens || 0,
+        };
+      }
+    }
+
+    // ── Format B: nested batsmenData / bowlersData objects (old API) ─────
     const batsmen = inning.batTeamDetails?.batsmenData || {};
     for (const key of Object.keys(batsmen)) {
-      const b = batsmen[key];
+      const b    = batsmen[key];
       const name = b.batName || b.name;
       if (!name) continue;
       const pKey = ensurePlayer(name);
       playerStats[pKey].batting = {
-        runs:  b.runs,
-        balls: b.balls,
-        fours: b.fours,
-        sixes: b.sixes,
+        runs:  b.runs  || 0,
+        balls: b.balls || 0,
+        fours: b.fours || 0,
+        sixes: b.sixes || 0,
         isOut: b.outDesc !== "not out" && b.outDesc !== "",
       };
     }
 
     const bowlers = inning.bowlTeamDetails?.bowlersData || {};
     for (const key of Object.keys(bowlers)) {
-      const b = bowlers[key];
+      const b    = bowlers[key];
       const name = b.bowlName || b.name;
       if (!name) continue;
       const pKey = ensurePlayer(name);
       playerStats[pKey].bowling = {
-        overs:   b.overs,
-        wickets: b.wickets,
-        runs:    b.runs,
-        maidens: b.maidens,
+        overs:   b.overs   || 0,
+        wickets: b.wickets || 0,
+        runs:    b.runs    || 0,
+        maidens: b.maidens || 0,
       };
     }
   }
@@ -234,7 +261,7 @@ function parseScorecard(scorecard) {
 
 // ── Fuzzy name match ──────────────────────────────────────────────────────────
 function findPlayerStats(playerName, statsMap) {
-  const norm = (n) => n.trim().toLowerCase().replace(/\s+/g, " ");
+  const norm   = (n) => n.trim().toLowerCase().replace(/\s+/g, " ");
   const target = norm(playerName);
 
   if (statsMap[target]) return statsMap[target];
@@ -251,10 +278,10 @@ function findPlayerStats(playerName, statsMap) {
   return null;
 }
 
-// ── Calculate total fantasy points for one player ────────────────────────────
+// ── Calculate points for one player ──────────────────────────────────────────
 function calcPlayerPoints(playerName, statsMap, isCaptain, isViceCaptain) {
   const stats = findPlayerStats(playerName, statsMap);
-  let pts = stats ? 4 : 0; // 4 base pts only if found in scorecard (played)
+  let pts = stats ? 4 : 0;
 
   if (stats?.batting) pts += calcBattingPoints(stats.batting);
   if (stats?.bowling) pts += calcBowlingPoints(stats.bowling);
@@ -265,7 +292,7 @@ function calcPlayerPoints(playerName, statsMap, isCaptain, isViceCaptain) {
   return pts;
 }
 
-// ── Calculate total fantasy points for one team ───────────────────────────────
+// ── Calculate points for one team ─────────────────────────────────────────────
 function calcTeamPoints(team, statsMap) {
   let total = 0;
   for (const playerName of team.players) {
@@ -283,8 +310,8 @@ function calcTeamPoints(team, statsMap) {
 // ── POST /fantasy11-settle/auto/:matchId ──────────────────────────────────────
 router.post("/auto/:matchId", async (req, res) => {
   try {
-    const matchId = req.params.matchId;
-    const iplId   = parseInt(matchId.replace("ipl-", "").replace("ipl", ""));
+    const matchId  = req.params.matchId;
+    const iplId    = parseInt(matchId.replace("ipl-", "").replace("ipl", ""));
     const iplMatch = IPL_MATCHES.find(m => m.id === iplId);
 
     if (!iplMatch) return res.status(404).json({ message: `IPL match ${matchId} not found` });
@@ -292,21 +319,19 @@ router.post("/auto/:matchId", async (req, res) => {
     const cricbuzzId = req.body.cricbuzzId || getCricbuzzId(matchId);
     if (!cricbuzzId) {
       return res.status(400).json({
-        message: `No Cricbuzz ID for ipl-${iplId}. Pass cricbuzzId in body or register it first via POST /fantasy11-settle/register-match`,
-        hint: '{ "cricbuzzId": 149640 }',
+        message: `No Cricbuzz ID for ipl-${iplId}. Pass cricbuzzId in body.`,
+        hint: '{ "cricbuzzId": 149651 }',
       });
     }
 
-    // Save cricbuzzId to registry so breakdown works without passing it
     const normalizedKey = `ipl-${iplId}`;
     cricbuzzRegistry[normalizedKey] = parseInt(cricbuzzId);
 
     const allTeams = await Fantasy11Team.find({
       matchId: { $in: [matchId, `ipl-${iplId}`, `ipl${iplId}`] }
     });
-    if (allTeams.length === 0) {
+    if (allTeams.length === 0)
       return res.status(404).json({ message: `No Fantasy11 teams found for matchId: ${matchId}` });
-    }
 
     console.log(`Fetching Cricbuzz scorecard for match ${cricbuzzId}...`);
     const scorecard = await fetchScorecard(cricbuzzId);
@@ -329,8 +354,7 @@ router.post("/auto/:matchId", async (req, res) => {
 
     res.json({
       message: `✅ Fantasy11 auto-settled for ${matchId}!`,
-      matchId,
-      cricbuzzId,
+      matchId, cricbuzzId,
       totalTeams: results.length,
       winner: winner?.username,
       winnerPoints: winner?.fantasyPoints,
@@ -345,7 +369,6 @@ router.post("/auto/:matchId", async (req, res) => {
 });
 
 // ── GET /fantasy11-settle/breakdown/:username/:matchId ────────────────────────
-// Now works WITHOUT passing cricbuzzId in query — reads from DB or registry
 router.get("/breakdown/:username/:matchId", async (req, res) => {
   try {
     const { username, matchId } = req.params;
@@ -361,15 +384,11 @@ router.get("/breakdown/:username/:matchId", async (req, res) => {
 
     if (!team) return res.status(404).json({ message: "Team not found for this user and match" });
 
-    // ── Resolve cricbuzzId: query param > team record in DB > registry ───────
-    const cricbuzzId =
-      req.query.cricbuzzId ||
-      team.cricbuzzId ||
-      getCricbuzzId(matchId);
+    const cricbuzzId = req.query.cricbuzzId || team.cricbuzzId || getCricbuzzId(matchId);
 
     if (!cricbuzzId) {
       return res.status(400).json({
-        message: "CricbuzzId not available for this match yet. Please settle the match first via POST /fantasy11-settle/auto/:matchId",
+        message: "No cricbuzzId available. Settle the match first via POST /fantasy11-settle/auto/:matchId",
         hint: "Or pass ?cricbuzzId=XXXXX in the URL",
       });
     }
@@ -378,9 +397,9 @@ router.get("/breakdown/:username/:matchId", async (req, res) => {
     const statsMap  = parseScorecard(scorecard);
 
     const breakdown = team.players.map(playerName => {
-      const isCap = playerName === team.captain;
-      const isVC  = playerName === team.viceCaptain;
-      const stats = findPlayerStats(playerName, statsMap);
+      const isCap  = playerName === team.captain;
+      const isVC   = playerName === team.viceCaptain;
+      const stats  = findPlayerStats(playerName, statsMap);
 
       const basePts    = stats ? 4 : 0;
       const battingPts = stats?.batting ? calcBattingPoints(stats.batting) : 0;
@@ -388,20 +407,14 @@ router.get("/breakdown/:username/:matchId", async (req, res) => {
       let totalPts = basePts + battingPts + bowlingPts;
 
       let multiplier = 1;
-      if (isCap) { totalPts = Math.round(totalPts * 2); multiplier = 2; }
+      if (isCap) { totalPts = Math.round(totalPts * 2);   multiplier = 2;   }
       if (isVC)  { totalPts = Math.round(totalPts * 1.5); multiplier = 1.5; }
 
       return {
-        name:             playerName,
-        isCaptain:        isCap,
-        isViceCaptain:    isVC,
-        multiplier,
-        points:           totalPts,
-        basePts,
-        battingPts,
-        bowlingPts,
-        batting:          stats?.batting || null,
-        bowling:          stats?.bowling || null,
+        name: playerName, isCaptain: isCap, isViceCaptain: isVC,
+        multiplier, points: totalPts, basePts, battingPts, bowlingPts,
+        batting: stats?.batting || null,
+        bowling: stats?.bowling || null,
         foundInScorecard: !!stats,
       };
     }).sort((a, b) => b.points - a.points);
@@ -409,13 +422,11 @@ router.get("/breakdown/:username/:matchId", async (req, res) => {
     const totalPoints = breakdown.reduce((sum, p) => sum + p.points, 0);
 
     res.json({
-      username,
-      matchId,
-      matchLabel:   team.matchLabel,
-      captain:      team.captain,
-      viceCaptain:  team.viceCaptain,
-      totalPoints,
-      breakdown,
+      username, matchId,
+      matchLabel:  team.matchLabel,
+      captain:     team.captain,
+      viceCaptain: team.viceCaptain,
+      totalPoints, breakdown,
     });
 
   } catch (err) {
@@ -430,7 +441,7 @@ router.get("/preview/:cricbuzzId", async (req, res) => {
     const scorecard = await fetchScorecard(req.params.cricbuzzId);
     const statsMap  = parseScorecard(scorecard);
 
-    const players = Object.entries(statsMap).map(([key, val]) => ({
+    const players = Object.entries(statsMap).map(([, val]) => ({
       name:         val.originalName,
       battingPts:   val.batting ? calcBattingPoints(val.batting) : 0,
       bowlingPts:   val.bowling ? calcBowlingPoints(val.bowling) : 0,
@@ -448,7 +459,6 @@ router.get("/preview/:cricbuzzId", async (req, res) => {
 });
 
 // ── POST /fantasy11-settle/register-match ─────────────────────────────────────
-// Register a cricbuzzId for a match so breakdown works automatically
 router.post("/register-match", async (req, res) => {
   const { iplId, cricbuzzId } = req.body;
   if (!iplId || !cricbuzzId)
@@ -460,8 +470,6 @@ router.post("/register-match", async (req, res) => {
   const key = `ipl-${iplId}`;
   cricbuzzRegistry[key] = parseInt(cricbuzzId);
 
-  // Also update any existing Fantasy11Team records for this match so
-  // breakdown keeps working even after server restarts (until next deploy)
   await Fantasy11Team.updateMany(
     { matchId: { $in: [key, `ipl${iplId}`] } },
     { $set: { cricbuzzId: parseInt(cricbuzzId) } }
@@ -474,7 +482,6 @@ router.post("/register-match", async (req, res) => {
 });
 
 // ── GET /fantasy11-settle/registry ────────────────────────────────────────────
-// See all registered cricbuzz IDs
 router.get("/registry", (req, res) => {
   const registered = Object.entries(cricbuzzRegistry)
     .filter(([, v]) => v !== null)
