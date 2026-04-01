@@ -543,10 +543,13 @@ app.post("/admin/settle-match", async (req, res) => {
   } catch (err) { console.error("admin/settle-match error:", err.message); res.status(500).json({ message: err.message }); }
 });
 
+// ─── Admin: Fix Incorrectly Settled Bets & Contests ──────────────────────────
 app.post("/admin/fix-bet", async (req, res) => {
   try {
     const { matchId, winner } = req.body;
     if (!matchId || !winner) return res.status(400).json({ message: "matchId and winner are required" });
+
+    // ── 1. Fix Bets ───────────────────────────────────────────────────────────
     const bets = await Bet.find({ matchId });
     let fixed = 0;
     for (const bet of bets) {
@@ -554,30 +557,114 @@ app.post("/admin/fix-bet", async (req, res) => {
       if (!user) continue;
       const won = winner.toLowerCase().includes(bet.team.toLowerCase());
       const multiplier = bet.odds && bet.odds > 1 ? bet.odds : 2.0;
-      if (bet.status === "lost" && won) { user.points += Math.floor(bet.amount * multiplier); user.lockedPoints = Math.max(0, user.lockedPoints - bet.amount); await user.save(); bet.status = "won"; await bet.save(); fixed++; }
-      else if (bet.status === "won" && !won) { user.points = Math.max(0, user.points - Math.floor(bet.amount * multiplier)); await user.save(); bet.status = "lost"; await bet.save(); fixed++; }
+      const payout = Math.floor(bet.amount * multiplier);
+
+      if (bet.status === "lost" && won) {
+        // Was marked lost but should have won — pay them out
+        user.points += payout;
+        await user.save();
+        bet.status = "won";
+        await bet.save();
+        fixed++;
+      } else if (bet.status === "won" && !won) {
+        // Was marked won but should have lost — claw back payout
+        // Claw back as much as they still have; log if they've already spent it
+        const clawback = Math.min(user.points, payout);
+        user.points -= clawback;
+        const debt = payout - clawback;
+        if (debt > 0) {
+          // They've spent the wrongly awarded points — log for manual review
+          user.lockedPoints = Math.max(0, (user.lockedPoints || 0) - debt);
+          console.warn(`Bet fix: ${bet.username} short by ${debt} pts (already spent wrong payout) on ${matchId}`);
+        }
+        await user.save();
+        bet.status = "lost";
+        await bet.save();
+        fixed++;
+      }
     }
+
+    // ── 2. Fix Contests ───────────────────────────────────────────────────────
     let contestsFixed = 0;
     if (matchId.startsWith("ipl-")) {
       const iplId = parseInt(matchId.replace("ipl-", ""));
       const iplMatch = IPL_MATCHES.find(m => m.id === iplId);
+
       if (iplMatch) {
-        const settledContests = await Contest.find({ status: "settled", team1: iplMatch.team1, team2: iplMatch.team2 });
+        const correctWinningTeam = winner.toLowerCase().includes(iplMatch.team1.toLowerCase())
+          ? iplMatch.team1
+          : iplMatch.team2;
+
+        const settledContests = await Contest.find({
+          status: "settled",
+          team1: iplMatch.team1,
+          team2: iplMatch.team2,
+        });
+
         for (const contest of settledContests) {
-          const correctWinningTeam = winner.toLowerCase().includes(iplMatch.team1.toLowerCase()) ? iplMatch.team1 : iplMatch.team2;
+          // Already correct — skip
           if (contest.winningTeam === correctWinningTeam) continue;
-          const wrongWinners = contest.participants.filter(p => p.team === contest.winningTeam);
-          const correctWinners = contest.participants.filter(p => p.team === correctWinningTeam);
+
           const totalPot = contest.entryFee * contest.participants.length;
-          for (const p of wrongWinners) { const u = await User.findOne({ name: p.username }); if (u) { u.points = Math.max(0, u.points - Math.floor(totalPot / wrongWinners.length)); await u.save(); } }
-          if (correctWinners.length === 0) { for (const p of contest.participants) { const u = await User.findOne({ name: p.username }); if (u) { u.points += contest.entryFee; await u.save(); } } contest.winner = "refund"; }
-          else { const prize = Math.floor(totalPot / correctWinners.length); const remainder = totalPot - prize * correctWinners.length; for (let i = 0; i < correctWinners.length; i++) { const u = await User.findOne({ name: correctWinners[i].username }); if (u) { u.points += prize + (i === 0 ? remainder : 0); await u.save(); } } contest.winner = correctWinners.map(w => w.username).join(", "); }
-          contest.winningTeam = correctWinningTeam; await contest.save(); contestsFixed++;
+          const wrongWinners   = contest.participants.filter(p => p.team === contest.winningTeam);
+          const correctWinners = contest.participants.filter(p => p.team === correctWinningTeam);
+
+          // ── Step 1: Claw back from wrong winners ──────────────────────────
+          if (wrongWinners.length > 0) {
+            const wrongPrize = Math.floor(totalPot / wrongWinners.length);
+            for (const p of wrongWinners) {
+              const u = await User.findOne({ name: p.username });
+              if (!u) continue;
+              // Claw back as much as they still have; log if they've spent it
+              const clawback = Math.min(u.points, wrongPrize);
+              u.points -= clawback;
+              const debt = wrongPrize - clawback;
+              if (debt > 0) {
+                console.warn(`Contest fix: ${p.username} short by ${debt} pts (already spent prize) in contest ${contest._id}`);
+              }
+              await u.save();
+            }
+          }
+
+          // ── Step 2: Pay correct winners or refund all if no correct picks ─
+          if (correctWinners.length === 0) {
+            // Nobody picked the right team — refund everyone their entry fee
+            for (const p of contest.participants) {
+              const u = await User.findOne({ name: p.username });
+              if (u) { u.points += contest.entryFee; await u.save(); }
+            }
+            contest.winner = "refund";
+          } else {
+            const prize     = Math.floor(totalPot / correctWinners.length);
+            const remainder = totalPot - prize * correctWinners.length;
+            for (let i = 0; i < correctWinners.length; i++) {
+              const u = await User.findOne({ name: correctWinners[i].username });
+              if (u) {
+                u.points += prize + (i === 0 ? remainder : 0);
+                await u.save();
+              }
+            }
+            contest.winner = correctWinners.map(w => w.username).join(", ");
+          }
+
+          contest.winningTeam = correctWinningTeam;
+          await contest.save();
+          contestsFixed++;
+          console.log(`Contest "${contest.name}" re-settled → winner: ${contest.winner}`);
         }
       }
     }
-    res.json({ message: `Fixed ${fixed} bet(s) and ${contestsFixed} contest(s) for ${matchId}.`, winner, fixed, contestsFixed });
-  } catch (err) { console.error("admin/fix-bet error:", err.message); res.status(500).json({ message: err.message }); }
+
+    res.json({
+      message: `Fixed ${fixed} bet(s) and ${contestsFixed} contest(s) for ${matchId}.`,
+      winner,
+      fixed,
+      contestsFixed,
+    });
+  } catch (err) {
+    console.error("admin/fix-bet error:", err.message);
+    res.status(500).json({ message: err.message });
+  }
 });
 
 app.post("/admin/settle-all", async (req, res) => {
