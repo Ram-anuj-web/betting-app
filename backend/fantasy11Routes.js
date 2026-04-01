@@ -1,10 +1,16 @@
 // ============================================================
-//  fantasy11Routes.js  —  bulletproof version v4
+//  fantasy11Routes.js  —  bulletproof version v5
 //  Usage:  app.use('/fantasy11', require('./fantasy11Routes'))
 // ============================================================
 const express = require("express");
 const router  = express.Router();
 const { Fantasy11Team } = require("./models");
+
+// ── helper: expand any matchId format to all variants ────────────────────────
+function expandMatchIds(matchId) {
+  const rawId = matchId.replace(/^ipl-?/, "");
+  return [matchId, `ipl-${rawId}`, `ipl${rawId}`, rawId];
+}
 
 // ── POST /fantasy11/team  — save or update a team ────────────────────────────
 router.post("/team", async (req, res) => {
@@ -30,7 +36,8 @@ router.post("/team", async (req, res) => {
     if (!players.includes(viceCaptain))
       return res.status(400).json({ message: `Vice-captain "${viceCaptain}" is not in your squad.` });
 
-    const existing = await Fantasy11Team.findOne({ username, matchId }).lean();
+    const matchIds = expandMatchIds(matchId);
+    const existing = await Fantasy11Team.findOne({ username, matchId: { $in: matchIds } }).lean();
     if (existing && existing.locked)
       return res.status(403).json({ message: "Team is locked — match has already started." });
 
@@ -56,7 +63,7 @@ router.post("/team", async (req, res) => {
       { upsert: true }
     );
 
-    const savedTeam = await Fantasy11Team.findOne({ username, matchId }).lean();
+    const savedTeam = await Fantasy11Team.findOne({ username, matchId: { $in: matchIds } }).lean();
     return res.json({ success: true, team: savedTeam });
 
   } catch (err) {
@@ -69,7 +76,8 @@ router.post("/team", async (req, res) => {
 router.get("/team/:username/:matchId", async (req, res) => {
   try {
     const { username, matchId } = req.params;
-    const team = await Fantasy11Team.findOne({ username, matchId }).lean();
+    const matchIds = expandMatchIds(matchId);
+    const team = await Fantasy11Team.findOne({ username, matchId: { $in: matchIds } }).lean();
     return res.json({ team: team || null });
   } catch (err) {
     console.error("[fantasy11/team GET] Error:", err.message);
@@ -94,8 +102,9 @@ router.get("/my-teams/:username", async (req, res) => {
 // ── GET /fantasy11/leaderboard/:matchId ──────────────────────────────────────
 router.get("/leaderboard/:matchId", async (req, res) => {
   try {
+    const matchIds = expandMatchIds(req.params.matchId);
     const teams = await Fantasy11Team.find(
-      { matchId: req.params.matchId, fantasyPoints: { $ne: null } },
+      { matchId: { $in: matchIds }, fantasyPoints: { $ne: null } },
       { username: 1, fantasyPoints: 1, captain: 1, _id: 0 }
     ).sort({ fantasyPoints: -1 }).limit(50).lean();
     return res.json({ leaderboard: teams });
@@ -108,8 +117,9 @@ router.get("/leaderboard/:matchId", async (req, res) => {
 // ── GET /fantasy11/both-teams/:matchId ───────────────────────────────────────
 router.get("/both-teams/:matchId", async (req, res) => {
   try {
+    const matchIds = expandMatchIds(req.params.matchId);
     const teams = await Fantasy11Team.find(
-      { matchId: req.params.matchId },
+      { matchId: { $in: matchIds } },
       { username: 1, fantasyPoints: 1, captain: 1, viceCaptain: 1, players: 1, _id: 0 }
     ).lean();
     return res.json({ teams });
@@ -122,8 +132,9 @@ router.get("/both-teams/:matchId", async (req, res) => {
 // ── POST /fantasy11/lock/:matchId ─────────────────────────────────────────────
 router.post("/lock/:matchId", async (req, res) => {
   try {
+    const matchIds = expandMatchIds(req.params.matchId);
     const result = await Fantasy11Team.updateMany(
-      { matchId: req.params.matchId },
+      { matchId: { $in: matchIds } },
       { $set: { locked: true } }
     );
     return res.json({ success: true, lockedCount: result.modifiedCount });
@@ -139,9 +150,10 @@ router.post("/settle/:matchId", async (req, res) => {
     const { scores } = req.body;
     if (!Array.isArray(scores))
       return res.status(400).json({ message: "scores array is required." });
+    const matchIds = expandMatchIds(req.params.matchId);
     const ops = scores.map(({ username, fantasyPoints }) => ({
       updateOne: {
-        filter: { username, matchId: req.params.matchId },
+        filter: { username, matchId: { $in: matchIds } },
         update:  { $set: { fantasyPoints } },
       },
     }));
