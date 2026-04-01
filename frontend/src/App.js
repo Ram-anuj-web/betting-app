@@ -389,6 +389,7 @@ export default function App() {
           amount: c.entryFee, prize, totalPot, status,
           contestStatus: c.status, winningTeam: c.winningTeam,
           contestName: c.name, createdAt: c.createdAt,
+          matchId: c.matchId || null,
           detail: `${c.participants?.length || 1}/${c.maxPlayers} players`,
         };
       });
@@ -587,14 +588,19 @@ export default function App() {
       <div className="bg-glow" />
 
       {/* ── Modals ── */}
-      {selectedHistoryItem && selectedHistoryItem.type === "fantasy11" && (
+      {selectedHistoryItem && (selectedHistoryItem.type === "fantasy11" || selectedHistoryItem.team === "fantasy11") && (
         <Fantasy11BreakdownModal
-          item={selectedHistoryItem}
+          item={{
+            ...selectedHistoryItem,
+            matchId: selectedHistoryItem.matchId
+              ? ("" + selectedHistoryItem.matchId).replace(/^ipl(\d)/, "ipl-$1")
+              : null,
+          }}
           username={username}
           onClose={() => setSelectedHistoryItem(null)}
         />
       )}
-      {selectedHistoryItem && selectedHistoryItem.type !== "fantasy11" && (
+      {selectedHistoryItem && selectedHistoryItem.type !== "fantasy11" && selectedHistoryItem.team !== "fantasy11" && (
         <DetailModal
           item={selectedHistoryItem}
           onClose={() => setSelectedHistoryItem(null)}
