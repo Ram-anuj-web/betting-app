@@ -13,6 +13,279 @@ const SPORTS = [
   { id: "tennis",    name: "Tennis",     emoji: "🎾", teams: ["Djokovic", "Alcaraz", "Sinner", "Medvedev"] },
 ];
 
+// ── Fantasy 11 Breakdown Modal ─────────────────────────────────────────────────
+function Fantasy11BreakdownModal({ item, username, onClose }) {
+  const [breakdown, setBreakdown] = useState(null);
+  const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState("");
+
+  useEffect(() => {
+    async function fetchBreakdown() {
+      try {
+        const res  = await fetch(`${API}/fantasy11-settle/breakdown/${username}/${item.matchId}`);
+        const data = await res.json();
+        if (res.ok) setBreakdown(data);
+        else setError(data.message || "Could not load breakdown.");
+      } catch {
+        setError("Server error. Make sure this match has been settled.");
+      }
+      setLoading(false);
+    }
+    fetchBreakdown();
+  }, [item.matchId, username]);
+
+  const roleColor = { WK: "#7B68EE", BAT: "#00C896", AR: "#F0A500", BOWL: "#FF6B6B" };
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      zIndex: 9999, padding: 16,
+    }}>
+      <div style={{
+        background: "#0d1117", border: "1px solid #30363d", borderRadius: 16,
+        width: "100%", maxWidth: 520, maxHeight: "85vh", overflow: "hidden",
+        display: "flex", flexDirection: "column",
+      }}>
+        {/* Header */}
+        <div style={{
+          padding: "16px 20px", borderBottom: "1px solid #30363d",
+          display: "flex", justifyContent: "space-between", alignItems: "flex-start",
+        }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#ffd166" }}>🏏 Fantasy 11 Breakdown</div>
+            <div style={{ fontSize: 12, color: "#7d8590", marginTop: 3 }}>{item.matchLabel}</div>
+          </div>
+          <button onClick={onClose} style={{
+            background: "none", border: "1px solid #30363d", color: "#7d8590",
+            borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 16,
+          }}>×</button>
+        </div>
+
+        {/* Body */}
+        <div style={{ overflowY: "auto", padding: "16px 20px", flex: 1 }}>
+          {loading && (
+            <div style={{ textAlign: "center", color: "#7d8590", padding: 40 }}>
+              Loading breakdown...
+            </div>
+          )}
+
+          {error && !loading && (
+            <div style={{
+              background: "#300", border: "1px solid #a32d2d", borderRadius: 8,
+              padding: "12px 16px", color: "#ff6b6b", fontSize: 13,
+            }}>
+              ⚠️ {error}
+              <div style={{ marginTop: 8, fontSize: 12, color: "#7d8590" }}>
+                This match may not have been settled yet. Check back after the match ends.
+              </div>
+            </div>
+          )}
+
+          {breakdown && !loading && (
+            <>
+              {/* Total Points */}
+              <div style={{
+                background: "linear-gradient(135deg,#ffd16615,#ffd16605)",
+                border: "1px solid #ffd16644", borderRadius: 12,
+                padding: "14px 18px", marginBottom: 16,
+                display: "flex", justifyContent: "space-between", alignItems: "center",
+              }}>
+                <div>
+                  <div style={{ fontSize: 12, color: "#7d8590" }}>Total Fantasy Points</div>
+                  <div style={{ fontSize: 32, fontWeight: 800, color: "#ffd166", lineHeight: 1 }}>
+                    {breakdown.totalPoints}
+                  </div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: 12, color: "#7d8590" }}>Captain</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#e6edf3" }}>{breakdown.captain}</div>
+                  <div style={{ fontSize: 12, color: "#7d8590", marginTop: 4 }}>Vice-Captain</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#e6edf3" }}>{breakdown.viceCaptain}</div>
+                </div>
+              </div>
+
+              {/* Player List */}
+              <div style={{ fontSize: 11, color: "#7d8590", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                Player Breakdown
+              </div>
+              {breakdown.breakdown.map((p, i) => (
+                <div key={p.name} style={{
+                  background: p.isCaptain ? "#ffd16610" : p.isViceCaptain ? "#7B68EE10" : "#161b22",
+                  border: `1px solid ${p.isCaptain ? "#ffd16644" : p.isViceCaptain ? "#7B68EE44" : "#30363d"}`,
+                  borderRadius: 10, padding: "10px 14px", marginBottom: 8,
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    {/* Rank */}
+                    <div style={{
+                      width: 22, height: 22, borderRadius: "50%",
+                      background: i === 0 ? "#ffd166" : i === 1 ? "#c0c0c0" : i === 2 ? "#cd7f32" : "#30363d",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 10, fontWeight: 700,
+                      color: i < 3 ? "#000" : "#7d8590", flexShrink: 0,
+                    }}>
+                      {i + 1}
+                    </div>
+
+                    {/* Name + badges */}
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                        <span style={{ fontWeight: 600, fontSize: 13, color: "#e6edf3" }}>{p.name}</span>
+                        {p.isCaptain && (
+                          <span style={{ fontSize: 9, fontWeight: 800, padding: "1px 6px", borderRadius: 99, background: "#ffd166", color: "#000" }}>C · 2×</span>
+                        )}
+                        {p.isViceCaptain && (
+                          <span style={{ fontSize: 9, fontWeight: 800, padding: "1px 6px", borderRadius: 99, background: "#7B68EE", color: "#fff" }}>VC · 1.5×</span>
+                        )}
+                        {!p.foundInScorecard && (
+                          <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 99, background: "#30363d", color: "#7d8590" }}>DNP</span>
+                        )}
+                      </div>
+
+                      {/* Stats breakdown */}
+                      {p.foundInScorecard && (
+                        <div style={{ display: "flex", gap: 10, marginTop: 4, flexWrap: "wrap" }}>
+                          {p.batting && (
+                            <span style={{ fontSize: 10, color: "#00C896" }}>
+                              🏏 {p.batting.runs}r ({p.batting.balls}b)
+                              {p.batting.fours > 0 && ` · ${p.batting.fours}×4`}
+                              {p.batting.sixes > 0 && ` · ${p.batting.sixes}×6`}
+                              <span style={{ color: "#7d8590" }}> +{p.battingPts}pts</span>
+                            </span>
+                          )}
+                          {p.bowling && (
+                            <span style={{ fontSize: 10, color: "#FF6B6B" }}>
+                              🎳 {p.bowling.wickets}w ({p.bowling.overs}ov)
+                              <span style={{ color: "#7d8590" }}> +{p.bowlingPts}pts</span>
+                            </span>
+                          )}
+                          {p.basePts > 0 && (
+                            <span style={{ fontSize: 10, color: "#7d8590" }}>+{p.basePts} base</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Points */}
+                    <div style={{ textAlign: "right", flexShrink: 0 }}>
+                      <div style={{
+                        fontSize: 18, fontWeight: 800,
+                        color: p.isCaptain ? "#ffd166" : p.isViceCaptain ? "#7B68EE" : "#e6edf3",
+                      }}>
+                        {p.points}
+                      </div>
+                      <div style={{ fontSize: 9, color: "#7d8590" }}>pts</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
+
+          {/* If no breakdown available but we have saved players */}
+          {!breakdown && !loading && !error && item.players?.length > 0 && (
+            <div>
+              <div style={{ fontSize: 12, color: "#7d8590", marginBottom: 10 }}>Your Squad (breakdown not yet available)</div>
+              {item.players.map(name => (
+                <div key={name} style={{
+                  background: "#161b22", border: "1px solid #30363d",
+                  borderRadius: 8, padding: "8px 12px", marginBottom: 6,
+                  display: "flex", justifyContent: "space-between",
+                }}>
+                  <span style={{ fontSize: 13, color: "#e6edf3" }}>{name}</span>
+                  {name === item.captain && <span style={{ fontSize: 10, fontWeight: 700, color: "#ffd166" }}>C</span>}
+                  {name === item.viceCaptain && <span style={{ fontSize: 10, fontWeight: 700, color: "#7B68EE" }}>VC</span>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Detail Modal for Bets / Contests / Challenges ─────────────────────────────
+function DetailModal({ item, onClose }) {
+  const statusColor = (s) => ({
+    won: "#1D9E75", lost: "#E24B4A", draw: "#888780",
+    active: "#7F77DD", cancelled: "#888780", settled: "#3C3489",
+  }[s] || "#BA7517");
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      zIndex: 9999, padding: 16,
+    }}>
+      <div style={{
+        background: "#fff", borderRadius: 16, width: "100%", maxWidth: 420,
+        boxShadow: "0 8px 32px rgba(0,0,0,0.18)", overflow: "hidden",
+      }}>
+        {/* Header */}
+        <div style={{
+          padding: "16px 20px", borderBottom: "1px solid #e8e6dc",
+          display: "flex", justifyContent: "space-between", alignItems: "center",
+          background: "#FAFAF7",
+        }}>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "#444441" }}>
+              {item.typeEmoji} {item.typeLabel} Details
+            </div>
+            <div style={{ fontSize: 12, color: "#888780", marginTop: 2 }}>{item.matchLabel}</div>
+          </div>
+          <button onClick={onClose} style={{
+            background: "none", border: "1px solid #d3d1c7", color: "#888780",
+            borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 16,
+          }}>×</button>
+        </div>
+
+        {/* Body */}
+        <div style={{ padding: "16px 20px" }}>
+          {/* Status */}
+          <div style={{
+            padding: "12px 16px", borderRadius: 10, marginBottom: 14,
+            background: `${statusColor(item.status)}11`,
+            border: `1px solid ${statusColor(item.status)}44`,
+            display: "flex", justifyContent: "space-between", alignItems: "center",
+          }}>
+            <span style={{ fontWeight: 700, fontSize: 15, color: statusColor(item.status) }}>
+              {item.status === "won" ? "🏆 Won!" : item.status === "lost" ? "😢 Lost" : item.status === "draw" ? "🤝 Draw" : item.status === "active" ? "⚡ Active" : item.status === "settled" ? "✅ Settled" : "⏳ Pending"}
+            </span>
+            <span style={{ fontSize: 12, color: "#888780" }}>{new Date(item.createdAt).toLocaleDateString()}</span>
+          </div>
+
+          {/* Info rows */}
+          {[
+            item.type === "bet"       && { label: "Team Picked",  value: item.team },
+            item.type === "bet"       && { label: "Odds",         value: `${item.odds}x` },
+            item.type === "contest"   && { label: "Contest Name", value: item.contestName },
+            item.type === "contest"   && { label: "Team Picked",  value: item.team },
+            item.type === "challenge" && { label: "Opponent",     value: item.opponent || "—" },
+            item.type === "challenge" && { label: "Team Picked",  value: item.team },
+            { label: "Amount",  value: `${item.amount} pts` },
+            item.status === "won" && item.type === "bet"       && { label: "Winnings", value: `${Math.floor(item.amount * (item.odds || 2))} pts`, highlight: true },
+            item.status === "won" && item.type === "contest"   && { label: "Prize",    value: `${item.prize} pts`, highlight: true },
+            item.status === "won" && item.type === "challenge" && { label: "Prize",    value: `${item.amount * 2} pts`, highlight: true },
+            item.detail && { label: "Info", value: item.detail },
+          ].filter(Boolean).map((row, i) => (
+            <div key={i} style={{
+              display: "flex", justifyContent: "space-between",
+              padding: "8px 0", borderBottom: "1px solid #f1efe8",
+            }}>
+              <span style={{ fontSize: 13, color: "#888780" }}>{row.label}</span>
+              <span style={{
+                fontSize: 13, fontWeight: 600,
+                color: row.highlight ? "#1D9E75" : "#444441",
+              }}>{row.value}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [screen, setScreen]               = useState("auth");
   const [authMode, setAuthMode]           = useState("login");
@@ -33,7 +306,10 @@ export default function App() {
   const [error, setError]                 = useState("");
   const [prefilledMatch, setPrefilledMatch] = useState(null);
   const [matchStatus, setMatchStatus]     = useState(null);
-  const [historyFilter, setHistoryFilter] = useState("all"); // NEW: filter state
+  const [historyFilter, setHistoryFilter] = useState("all");
+
+  // ── Modal state ────────────────────────────────────────────────────────────
+  const [selectedHistoryItem, setSelectedHistoryItem] = useState(null);
 
   // ── Back button ────────────────────────────────────────────────────────────
   useEffect(() => { window.history.pushState({ screen }, "", ""); }, [screen]);
@@ -47,7 +323,6 @@ export default function App() {
     if (username) { fetchMyBets(); fetchAllHistory(); }
   }, [username]);
 
-  // ── Poll match status for prefilled match ──────────────────────────────────
   useEffect(() => {
     if (!prefilledMatch) { setMatchStatus(null); return; }
     async function checkMatchStatus() {
@@ -80,18 +355,18 @@ export default function App() {
         fetch(`${API}/bets/${username}`),
         fetch(`${API}/contests/${username}`),
         fetch(`${API}/challenges/${username}`),
-        fetch(`${API}/fantasy11/my-teams/${username}`),   // ← NEW
+        fetch(`${API}/fantasy11/my-teams/${username}`),
       ]);
 
       const betsData       = betsRes.ok       ? await betsRes.json()       : [];
       const contestsData   = contestsRes.ok   ? await contestsRes.json()   : { contests: [] };
       const challengesData = challengesRes.ok ? await challengesRes.json() : { challenges: [] };
-      const fantasy11Data  = fantasy11Res.ok  ? await fantasy11Res.json()  : { teams: [] }; // ← NEW
+      const fantasy11Data  = fantasy11Res.ok  ? await fantasy11Res.json()  : { teams: [] };
 
       const bets       = Array.isArray(betsData) ? betsData : [];
       const contests   = contestsData.contests   || [];
       const challenges = challengesData.challenges || [];
-      const f11Teams   = fantasy11Data.teams || []; // ← NEW
+      const f11Teams   = fantasy11Data.teams || [];
 
       const normalizedBets = bets.map(b => ({
         _id: b._id, type: "bet", typeLabel: "Solo Bet", typeEmoji: "🎯",
@@ -136,7 +411,6 @@ export default function App() {
           };
         });
 
-      // ── NEW: Normalize Fantasy 11 teams ──────────────────────────────────
       const normalizedFantasy11 = f11Teams.map(t => {
         const hasResult = t.fantasyPoints !== null && t.fantasyPoints !== undefined;
         return {
@@ -163,7 +437,7 @@ export default function App() {
         ...normalizedBets,
         ...normalizedContests,
         ...normalizedChallenges,
-        ...normalizedFantasy11,   // ← NEW
+        ...normalizedFantasy11,
       ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
       setAllHistory(merged);
@@ -294,7 +568,6 @@ export default function App() {
   const pendingCount = myBets.filter(b => b.status === "pending").length;
   const isBettingLocked = matchStatus === "live" || matchStatus === "completed";
 
-  // ── History filter tabs config ─────────────────────────────────────────────
   const historyTabs = [
     { key: "all",       label: "All",         emoji: "",   color: "#7F77DD" },
     { key: "bet",       label: "Solo Bets",   emoji: "🎯", color: "#BA7517" },
@@ -312,6 +585,21 @@ export default function App() {
     <div className="app">
       <div className="bg-grid" />
       <div className="bg-glow" />
+
+      {/* ── Modals ── */}
+      {selectedHistoryItem && selectedHistoryItem.type === "fantasy11" && (
+        <Fantasy11BreakdownModal
+          item={selectedHistoryItem}
+          username={username}
+          onClose={() => setSelectedHistoryItem(null)}
+        />
+      )}
+      {selectedHistoryItem && selectedHistoryItem.type !== "fantasy11" && (
+        <DetailModal
+          item={selectedHistoryItem}
+          onClose={() => setSelectedHistoryItem(null)}
+        />
+      )}
 
       {/* ── AUTH ── */}
       {screen === "auth" && (
@@ -412,7 +700,6 @@ export default function App() {
                 <div className="stat-box"><div className="stat-num">{allHistory.length}</div><div className="stat-label">Total Bets</div></div>
                 <div className="stat-box"><div className="stat-num">{allHistory.filter(b => b.status === "won").length}</div><div className="stat-label">Wins</div></div>
                 <div className="stat-box"><div className="stat-num">{allHistory.filter(b => b.status === "pending" || b.status === "active").length}</div><div className="stat-label">Pending</div></div>
-                {/* NEW: Fantasy 11 stat */}
                 <div className="stat-box">
                   <div className="stat-num">{allHistory.filter(b => b.type === "fantasy11").length}</div>
                   <div className="stat-label">Fantasy 11</div>
@@ -580,7 +867,7 @@ export default function App() {
               <h2 className="screen-title">📜 My History</h2>
               <button className="btn-primary" style={{ marginBottom: 16, padding: "0.5rem 1.5rem" }} onClick={fetchAllHistory}>🔄 Refresh</button>
 
-              {/* ── Filter tabs ── */}
+              {/* Filter tabs */}
               <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
                 {historyTabs.map(tab => (
                   <button
@@ -613,7 +900,14 @@ export default function App() {
                     <div
                       key={`${item.type}-${item._id}`}
                       className={`history-row ${item.status === "won" ? "win" : item.status === "lost" ? "lose" : ""}`}
-                      style={{ borderLeft: `3px solid ${statusColor(item.status)}` }}
+                      onClick={() => setSelectedHistoryItem(item)}
+                      style={{
+                        borderLeft: `3px solid ${statusColor(item.status)}`,
+                        cursor: "pointer",
+                        transition: "background 0.15s",
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.03)"}
+                      onMouseLeave={e => e.currentTarget.style.background = ""}
                     >
                       <div className="history-sport">{statusEmoji(item.status)}</div>
                       <div style={{ flex: 1 }}>
@@ -635,9 +929,10 @@ export default function App() {
                           {item.type === "bet" && item.odds && item.odds !== 2.0 && (
                             <span style={{ fontSize: 10, padding: "1px 7px", borderRadius: 99, fontWeight: 600, background: "#E1F5EE", color: "#085041", border: "0.5px solid #5DCAA5" }}>{item.odds}x odds</span>
                           )}
+                          {/* Clickable hint */}
+                          <span style={{ fontSize: 9, color: "#7d8590", marginLeft: "auto" }}>tap for details →</span>
                         </div>
 
-                        {/* ── Fantasy 11 specific detail ── */}
                         {item.type === "fantasy11" ? (
                           <div style={{ fontSize: 12, marginTop: 4 }}>
                             <span style={{ opacity: 0.7 }}>{item.team}</span>
@@ -657,11 +952,8 @@ export default function App() {
 
                         {item.detail && (
                           <div style={{
-                            fontSize: 11,
-                            marginTop: 3,
-                            color: item.type === "fantasy11" && item.fantasyPoints !== null
-                              ? "#ffd166"
-                              : "rgba(255,255,255,0.4)",
+                            fontSize: 11, marginTop: 3,
+                            color: item.type === "fantasy11" && item.fantasyPoints !== null ? "#ffd166" : "rgba(255,255,255,0.4)",
                             fontWeight: item.type === "fantasy11" && item.fantasyPoints !== null ? 700 : 400,
                           }}>
                             {item.type === "fantasy11" && item.fantasyPoints !== null ? "🏏 " : ""}{item.detail}
