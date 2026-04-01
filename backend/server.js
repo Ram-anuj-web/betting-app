@@ -821,7 +821,7 @@ app.get("/contests/:username", async (req, res) => {
   } catch (err) { res.status(500).json({ message: "Server error" }); }
 });
 
-// ─── FIX 2: Atomic join — prevents duplicate joins and over-limit race condition
+// ─── FIX: Atomic join — prevents duplicate joins via $elemMatch + $not ────────
 app.post("/contest/join", async (req, res) => {
   try {
     const { contestId, username, team, password } = req.body;
@@ -831,7 +831,7 @@ app.post("/contest/join", async (req, res) => {
     if (!contest) return res.status(404).json({ message: "Contest not found" });
     if (contest.status !== "open") return res.status(400).json({ message: "Contest is not open" });
 
-    // ── FIX: case-insensitive duplicate check ─────────────────────────────
+    // Early duplicate check (fast path before hitting DB atomically)
     if (contest.participants.find(p => p.username.toLowerCase() === username.toLowerCase()))
       return res.status(400).json({ message: "You already joined this contest" });
 
@@ -844,13 +844,20 @@ app.post("/contest/join", async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found" });
     if (user.points < contest.entryFee) return res.status(400).json({ message: "Not enough points" });
 
-    // ── FIX: atomic push — only succeeds if still under maxPlayers ────────
+    // ── FIXED: use $elemMatch + $not for correct array duplicate check ────
+    // The old regex approach ($not: new RegExp) was silently failing on arrays,
+    // allowing the same user to join twice under race conditions (double-tap).
+    // $elemMatch correctly checks each array element individually.
     const updated = await Contest.findOneAndUpdate(
       {
         _id: contest._id,
         status: "open",
         $expr: { $lt: [{ $size: "$participants" }, "$maxPlayers"] },
-        "participants.username": { $not: new RegExp(`^${username}$`, "i") },
+        participants: {
+          $not: {
+            $elemMatch: { username: { $regex: `^${username}$`, $options: "i" } },
+          },
+        },
       },
       { $push: { participants: { username, team } } },
       { new: true }
@@ -858,11 +865,11 @@ app.post("/contest/join", async (req, res) => {
 
     if (!updated) return res.status(400).json({ message: "Contest is full or you already joined!" });
 
-    // Deduct entry fee
+    // Deduct entry fee only after successful atomic join
     user.points -= contest.entryFee;
     await user.save();
 
-    // Lock if now full
+    // Lock contest if now full
     if (updated.participants.length >= updated.maxPlayers) {
       updated.status = "locked";
       await updated.save();
