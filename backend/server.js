@@ -547,6 +547,48 @@ app.post("/admin/settle-match", async (req, res) => {
   } catch (err) { console.error("admin/settle-match error:", err.message); res.status(500).json({ message: err.message }); }
 });
 
+// ─── Admin: Force re-settle Fantasy11 contest ─────────────────────────────────
+app.post("/admin/resiltle-fantasy11-contest", async (req, res) => {
+  try {
+    const { contestId } = req.body;
+    const contest = await Contest.findById(contestId);
+    if (!contest) return res.status(404).json({ message: "Contest not found" });
+
+    const Fantasy11Team = mongoose.models.Fantasy11Team;
+    const matchIds = ["ipl-5", "ipl5", "5"];
+
+    const f11Teams = await Fantasy11Team.find({
+      username: { $in: contest.participants.map(p => p.username) },
+      matchId: { $in: matchIds },
+      fantasyPoints: { $ne: null },
+    }).lean();
+
+    if (f11Teams.length === 0)
+      return res.status(404).json({ message: "Still no fantasy points found. Run fantasy11-settle/auto first." });
+
+    const maxPts = Math.max(...f11Teams.map(t => t.fantasyPoints));
+    const topTeams = f11Teams.filter(t => t.fantasyPoints === maxPts);
+    const winners = contest.participants.filter(p => topTeams.some(t => t.username === p.username));
+    const totalPot = contest.entryFee * contest.participants.length;
+    const prize = Math.floor(totalPot / winners.length);
+    const remainder = totalPot - prize * winners.length;
+
+    for (let i = 0; i < winners.length; i++) {
+      const u = await User.findOne({ name: winners[i].username });
+      if (u) { u.points += prize + (i === 0 ? remainder : 0); await u.save(); }
+    }
+
+    contest.status = "settled";
+    contest.winner = winners.map(w => w.username).join(", ");
+    contest.winningTeam = `Fantasy11 (${maxPts} pts)`;
+    await contest.save();
+
+    res.json({ message: "✅ Re-settled!", winner: contest.winner, winningTeam: contest.winningTeam, prize, totalPot });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // ─── Admin: Fix Incorrectly Settled Bets & Contests ──────────────────────────
 app.post("/admin/fix-bet", async (req, res) => {
   try {
@@ -827,10 +869,6 @@ app.post("/contest/join", async (req, res) => {
     const { contestId, username, team, password } = req.body;
     if (!contestId || !username || !team) return res.status(400).json({ message: "Missing fields" });
 
-    // Fetch only metadata fields — NOT the full participants array.
-    // Loading participants here creates a stale snapshot that causes the
-    // "4/3 players" race condition: two concurrent requests both pass the
-    // early duplicate/full check before either write commits.
     const contest = await Contest.findById(contestId).select("status visibility password entryFee maxPlayers");
     if (!contest) return res.status(404).json({ message: "Contest not found" });
     if (contest.status !== "open") return res.status(400).json({ message: "Contest is not open" });
@@ -844,9 +882,6 @@ app.post("/contest/join", async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found" });
     if (user.points < contest.entryFee) return res.status(400).json({ message: "Not enough points" });
 
-    // Single atomic operation — the ONLY guard against duplicates and overflow.
-    // $elemMatch correctly checks each array element; $expr enforces the cap.
-    // No race window exists here because MongoDB applies both conditions atomically.
     const updated = await Contest.findOneAndUpdate(
       {
         _id: contest._id,
@@ -864,11 +899,9 @@ app.post("/contest/join", async (req, res) => {
 
     if (!updated) return res.status(400).json({ message: "Contest is full or you already joined!" });
 
-    // Deduct entry fee only after confirmed atomic join
     user.points -= contest.entryFee;
     await user.save();
 
-    // Lock contest if now full
     if (updated.participants.length >= updated.maxPlayers) {
       updated.status = "locked";
       await updated.save();
