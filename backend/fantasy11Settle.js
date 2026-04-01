@@ -97,6 +97,7 @@ const cricbuzzRegistry = {
   "ipl-2": 149629,  // MI vs KKR
   "ipl-3": 149640,  // RR vs CSK
   "ipl-4": 149651,  // PBKS vs GT
+  "ipl-5": 149662,  // DC VS LSG
   // Add more here as matches get played
 };
 
