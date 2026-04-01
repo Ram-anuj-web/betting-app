@@ -1,8 +1,8 @@
 import Multiplayer from "./Multiplayer";
 import Matches from "./Matches";
 import Fantasy11 from "./Fantasy11";
-import React, { useState, useEffect } from "react";
 import Mines from "./Mines";
+import React, { useState, useEffect } from "react";
 import "./App.css";
 
 const API = "https://betting-backend-xq1q.onrender.com";
@@ -14,7 +14,6 @@ const SPORTS = [
   { id: "tennis",    name: "Tennis",     emoji: "🎾", teams: ["Djokovic", "Alcaraz", "Sinner", "Medvedev"] },
 ];
 
-// ── Fantasy 11 Breakdown Modal ─────────────────────────────────────────────────
 function Fantasy11BreakdownModal({ item, username, onClose }) {
   const [breakdown, setBreakdown] = useState(null);
   const [loading, setLoading]     = useState(true);
@@ -35,8 +34,6 @@ function Fantasy11BreakdownModal({ item, username, onClose }) {
     fetchBreakdown();
   }, [item.matchId, username]);
 
-  const roleColor = { WK: "#7B68EE", BAT: "#00C896", AR: "#F0A500", BOWL: "#FF6B6B" };
-
   return (
     <div style={{
       position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)",
@@ -48,7 +45,6 @@ function Fantasy11BreakdownModal({ item, username, onClose }) {
         width: "100%", maxWidth: 520, maxHeight: "85vh", overflow: "hidden",
         display: "flex", flexDirection: "column",
       }}>
-        {/* Header */}
         <div style={{
           padding: "16px 20px", borderBottom: "1px solid #30363d",
           display: "flex", justifyContent: "space-between", alignItems: "flex-start",
@@ -63,29 +59,18 @@ function Fantasy11BreakdownModal({ item, username, onClose }) {
           }}>×</button>
         </div>
 
-        {/* Body */}
         <div style={{ overflowY: "auto", padding: "16px 20px", flex: 1 }}>
-          {loading && (
-            <div style={{ textAlign: "center", color: "#7d8590", padding: 40 }}>
-              Loading breakdown...
-            </div>
-          )}
+          {loading && <div style={{ textAlign: "center", color: "#7d8590", padding: 40 }}>Loading breakdown...</div>}
 
           {error && !loading && (
-            <div style={{
-              background: "#300", border: "1px solid #a32d2d", borderRadius: 8,
-              padding: "12px 16px", color: "#ff6b6b", fontSize: 13,
-            }}>
+            <div style={{ background: "#300", border: "1px solid #a32d2d", borderRadius: 8, padding: "12px 16px", color: "#ff6b6b", fontSize: 13 }}>
               ⚠️ {error}
-              <div style={{ marginTop: 8, fontSize: 12, color: "#7d8590" }}>
-                This match may not have been settled yet. Check back after the match ends.
-              </div>
+              <div style={{ marginTop: 8, fontSize: 12, color: "#7d8590" }}>This match may not have been settled yet. Check back after the match ends.</div>
             </div>
           )}
 
           {breakdown && !loading && (
             <>
-              {/* Total Points */}
               <div style={{
                 background: "linear-gradient(135deg,#ffd16615,#ffd16605)",
                 border: "1px solid #ffd16644", borderRadius: 12,
@@ -94,9 +79,7 @@ function Fantasy11BreakdownModal({ item, username, onClose }) {
               }}>
                 <div>
                   <div style={{ fontSize: 12, color: "#7d8590" }}>Total Fantasy Points</div>
-                  <div style={{ fontSize: 32, fontWeight: 800, color: "#ffd166", lineHeight: 1 }}>
-                    {breakdown.totalPoints}
-                  </div>
+                  <div style={{ fontSize: 32, fontWeight: 800, color: "#ffd166", lineHeight: 1 }}>{breakdown.totalPoints}</div>
                 </div>
                 <div style={{ textAlign: "right" }}>
                   <div style={{ fontSize: 12, color: "#7d8590" }}>Captain</div>
@@ -106,10 +89,7 @@ function Fantasy11BreakdownModal({ item, username, onClose }) {
                 </div>
               </div>
 
-              {/* Player List */}
-              <div style={{ fontSize: 11, color: "#7d8590", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                Player Breakdown
-              </div>
+              <div style={{ fontSize: 11, color: "#7d8590", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em" }}>Player Breakdown</div>
               {breakdown.breakdown.map((p, i) => (
                 <div key={p.name} style={{
                   background: p.isCaptain ? "#ffd16610" : p.isViceCaptain ? "#7B68EE10" : "#161b22",
@@ -121,23 +101,14 @@ function Fantasy11BreakdownModal({ item, username, onClose }) {
                       width: 22, height: 22, borderRadius: "50%",
                       background: i === 0 ? "#ffd166" : i === 1 ? "#c0c0c0" : i === 2 ? "#cd7f32" : "#30363d",
                       display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: 10, fontWeight: 700,
-                      color: i < 3 ? "#000" : "#7d8590", flexShrink: 0,
-                    }}>
-                      {i + 1}
-                    </div>
+                      fontSize: 10, fontWeight: 700, color: i < 3 ? "#000" : "#7d8590", flexShrink: 0,
+                    }}>{i + 1}</div>
                     <div style={{ flex: 1 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                         <span style={{ fontWeight: 600, fontSize: 13, color: "#e6edf3" }}>{p.name}</span>
-                        {p.isCaptain && (
-                          <span style={{ fontSize: 9, fontWeight: 800, padding: "1px 6px", borderRadius: 99, background: "#ffd166", color: "#000" }}>C · 2×</span>
-                        )}
-                        {p.isViceCaptain && (
-                          <span style={{ fontSize: 9, fontWeight: 800, padding: "1px 6px", borderRadius: 99, background: "#7B68EE", color: "#fff" }}>VC · 1.5×</span>
-                        )}
-                        {!p.foundInScorecard && (
-                          <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 99, background: "#30363d", color: "#7d8590" }}>DNP</span>
-                        )}
+                        {p.isCaptain && <span style={{ fontSize: 9, fontWeight: 800, padding: "1px 6px", borderRadius: 99, background: "#ffd166", color: "#000" }}>C · 2×</span>}
+                        {p.isViceCaptain && <span style={{ fontSize: 9, fontWeight: 800, padding: "1px 6px", borderRadius: 99, background: "#7B68EE", color: "#fff" }}>VC · 1.5×</span>}
+                        {!p.foundInScorecard && <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 99, background: "#30363d", color: "#7d8590" }}>DNP</span>}
                       </div>
                       {p.foundInScorecard && (
                         <div style={{ display: "flex", gap: 10, marginTop: 4, flexWrap: "wrap" }}>
@@ -155,19 +126,12 @@ function Fantasy11BreakdownModal({ item, username, onClose }) {
                               <span style={{ color: "#7d8590" }}> +{p.bowlingPts}pts</span>
                             </span>
                           )}
-                          {p.basePts > 0 && (
-                            <span style={{ fontSize: 10, color: "#7d8590" }}>+{p.basePts} base</span>
-                          )}
+                          {p.basePts > 0 && <span style={{ fontSize: 10, color: "#7d8590" }}>+{p.basePts} base</span>}
                         </div>
                       )}
                     </div>
                     <div style={{ textAlign: "right", flexShrink: 0 }}>
-                      <div style={{
-                        fontSize: 18, fontWeight: 800,
-                        color: p.isCaptain ? "#ffd166" : p.isViceCaptain ? "#7B68EE" : "#e6edf3",
-                      }}>
-                        {p.points}
-                      </div>
+                      <div style={{ fontSize: 18, fontWeight: 800, color: p.isCaptain ? "#ffd166" : p.isViceCaptain ? "#7B68EE" : "#e6edf3" }}>{p.points}</div>
                       <div style={{ fontSize: 9, color: "#7d8590" }}>pts</div>
                     </div>
                   </div>
@@ -180,11 +144,7 @@ function Fantasy11BreakdownModal({ item, username, onClose }) {
             <div>
               <div style={{ fontSize: 12, color: "#7d8590", marginBottom: 10 }}>Your Squad (breakdown not yet available)</div>
               {item.players.map(name => (
-                <div key={name} style={{
-                  background: "#161b22", border: "1px solid #30363d",
-                  borderRadius: 8, padding: "8px 12px", marginBottom: 6,
-                  display: "flex", justifyContent: "space-between",
-                }}>
+                <div key={name} style={{ background: "#161b22", border: "1px solid #30363d", borderRadius: 8, padding: "8px 12px", marginBottom: 6, display: "flex", justifyContent: "space-between" }}>
                   <span style={{ fontSize: 13, color: "#e6edf3" }}>{name}</span>
                   {name === item.captain && <span style={{ fontSize: 10, fontWeight: 700, color: "#ffd166" }}>C</span>}
                   {name === item.viceCaptain && <span style={{ fontSize: 10, fontWeight: 700, color: "#7B68EE" }}>VC</span>}
@@ -198,7 +158,6 @@ function Fantasy11BreakdownModal({ item, username, onClose }) {
   );
 }
 
-// ── Detail Modal for Bets / Contests / Challenges ─────────────────────────────
 function DetailModal({ item, onClose }) {
   const statusColor = (s) => ({
     won: "#1D9E75", lost: "#E24B4A", draw: "#888780",
@@ -220,18 +179,11 @@ function DetailModal({ item, onClose }) {
           display: "flex", justifyContent: "space-between", alignItems: "center",
           background: "#FAFAF7",
         }}>
-          // After line 222 (the ⚔️ Multiplayer nav button)
-<button className={screen === "mines" ? "active" : ""} onClick={() => setScreen("mines")}>💣 Mines</button>
           <div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "#444441" }}>
-              {item.typeEmoji} {item.typeLabel} Details
-            </div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "#444441" }}>{item.typeEmoji} {item.typeLabel} Details</div>
             <div style={{ fontSize: 12, color: "#888780", marginTop: 2 }}>{item.matchLabel}</div>
           </div>
-          <button onClick={onClose} style={{
-            background: "none", border: "1px solid #d3d1c7", color: "#888780",
-            borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 16,
-          }}>×</button>
+          <button onClick={onClose} style={{ background: "none", border: "1px solid #d3d1c7", color: "#888780", borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 16 }}>×</button>
         </div>
 
         <div style={{ padding: "16px 20px" }}>
@@ -254,16 +206,13 @@ function DetailModal({ item, onClose }) {
             item.type === "contest"   && { label: "Team Picked",  value: item.team },
             item.type === "challenge" && { label: "Opponent",     value: item.opponent || "—" },
             item.type === "challenge" && { label: "Team Picked",  value: item.team },
-            { label: "Amount",  value: `${item.amount} pts` },
+            { label: "Amount", value: `${item.amount} pts` },
             item.status === "won" && item.type === "bet"       && { label: "Winnings", value: `${Math.floor(item.amount * (item.odds || 2))} pts`, highlight: true },
             item.status === "won" && item.type === "contest"   && { label: "Prize",    value: `${item.prize} pts`, highlight: true },
             item.status === "won" && item.type === "challenge" && { label: "Prize",    value: `${item.amount * 2} pts`, highlight: true },
             item.detail && { label: "Info", value: item.detail },
           ].filter(Boolean).map((row, i) => (
-            <div key={i} style={{
-              display: "flex", justifyContent: "space-between",
-              padding: "8px 0", borderBottom: "1px solid #f1efe8",
-            }}>
+            <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #f1efe8" }}>
               <span style={{ fontSize: 13, color: "#888780" }}>{row.label}</span>
               <span style={{ fontSize: 13, fontWeight: 600, color: row.highlight ? "#1D9E75" : "#444441" }}>{row.value}</span>
             </div>
@@ -348,9 +297,9 @@ export default function App() {
       const fantasy11Data  = fantasy11Res.ok  ? await fantasy11Res.json()  : { teams: [] };
 
       const bets       = Array.isArray(betsData) ? betsData : [];
-      const contests   = contestsData.contests   || [];
+      const contests   = contestsData.contests    || [];
       const challenges = challengesData.challenges || [];
-      const f11Teams   = fantasy11Data.teams || [];
+      const f11Teams   = fantasy11Data.teams       || [];
 
       const normalizedBets = bets.map(b => ({
         _id: b._id, type: "bet", typeLabel: "Solo Bet", typeEmoji: "🎯",
@@ -359,9 +308,9 @@ export default function App() {
       }));
 
       const normalizedContests = contests.map(c => {
-        const myEntry    = c.participants?.find(p => p.username === username);
-        const totalPot   = c.entryFee * (c.participants?.length || 1);
-        const winners    = c.winner ? c.winner.split(", ") : [];
+        const myEntry  = c.participants?.find(p => p.username === username);
+        const totalPot = c.entryFee * (c.participants?.length || 1);
+        const winners  = c.winner ? c.winner.split(", ") : [];
         let status = "pending";
         if (c.status === "settled")   status = winners.includes(username) ? "won" : "lost";
         if (c.status === "cancelled") status = "cancelled";
@@ -402,29 +351,13 @@ export default function App() {
           _id: t._id, type: "fantasy11", typeLabel: "Fantasy 11", typeEmoji: "🏏",
           matchLabel: t.matchLabel || t.matchId,
           team: `C: ${t.captain || "—"} · VC: ${t.viceCaptain || "—"}`,
-          amount: 0,
-          fantasyPoints: t.fantasyPoints,
+          amount: 0, fantasyPoints: t.fantasyPoints,
           status: hasResult ? "settled" : t.locked ? "active" : "pending",
           createdAt: t.createdAt,
-          detail: hasResult
-            ? `${t.fantasyPoints} fantasy pts scored`
-            : t.locked ? "Match in progress" : "Squad saved — awaiting match",
-          players: t.players || [],
-          captain: t.captain,
-          viceCaptain: t.viceCaptain,
-          matchId: t.matchId,
+          detail: hasResult ? `${t.fantasyPoints} fantasy pts scored` : t.locked ? "Match in progress" : "Squad saved — awaiting match",
+          players: t.players || [], captain: t.captain, viceCaptain: t.viceCaptain, matchId: t.matchId,
         };
       });
-      // After line 415 — add this block
-{screen === "mines" && (
-  <div className="screen">
-    <Mines
-      username={username}
-      points={points}
-      setPoints={setPoints}
-    />
-  </div>
-)}
 
       const merged = [
         ...normalizedBets,
@@ -521,19 +454,16 @@ export default function App() {
   }[s] || "#BA7517");
 
   const statusEmoji = (s) => ({
-    won: "🏆", lost: "😢", draw: "🤝", active: "⚡",
-    cancelled: "❌", settled: "✅",
+    won: "🏆", lost: "😢", draw: "🤝", active: "⚡", cancelled: "❌", settled: "✅",
   }[s] || "⏳");
 
   const statusLabel = (s) => ({
-    won: "WON", lost: "LOST", draw: "DRAW", active: "ACTIVE",
-    cancelled: "CANCELLED", settled: "SETTLED",
+    won: "WON", lost: "LOST", draw: "DRAW", active: "ACTIVE", cancelled: "CANCELLED", settled: "SETTLED",
   }[s] || "PENDING");
 
   const pointsDisplay = (item) => {
     if (item.type === "fantasy11") {
-      if (item.fantasyPoints !== null && item.fantasyPoints !== undefined)
-        return `${item.fantasyPoints} pts scored`;
+      if (item.fantasyPoints !== null && item.fantasyPoints !== undefined) return `${item.fantasyPoints} pts scored`;
       return item.locked ? "⚡ In progress" : "⏳ Pending";
     }
     if (item.status === "won") {
@@ -588,10 +518,7 @@ export default function App() {
         />
       )}
       {selectedHistoryItem && selectedHistoryItem.type !== "fantasy11" && selectedHistoryItem.team !== "fantasy11" && (
-        <DetailModal
-          item={selectedHistoryItem}
-          onClose={() => setSelectedHistoryItem(null)}
-        />
+        <DetailModal item={selectedHistoryItem} onClose={() => setSelectedHistoryItem(null)} />
       )}
 
       {/* ── AUTH ── */}
@@ -629,12 +556,11 @@ export default function App() {
               <button className={screen === "leaderboard" ? "active" : ""} onClick={() => { fetchLeaderboard(); setScreen("leaderboard"); }}>Leaderboard</button>
               <button className={screen === "history"     ? "active" : ""} onClick={() => { fetchAllHistory(); setScreen("history"); }}>
                 History {pendingCount > 0 && (
-                  <span style={{ background: "#BA7517", color: "#fff", borderRadius: 99, padding: "1px 6px", fontSize: 10, marginLeft: 4 }}>
-                    {pendingCount}
-                  </span>
+                  <span style={{ background: "#BA7517", color: "#fff", borderRadius: 99, padding: "1px 6px", fontSize: 10, marginLeft: 4 }}>{pendingCount}</span>
                 )}
               </button>
               <button className={screen === "multiplayer" ? "active" : ""} onClick={() => setScreen("multiplayer")}>⚔️ Multiplayer</button>
+              <button className={screen === "mines"       ? "active" : ""} onClick={() => setScreen("mines")}>💣 Mines</button>
             </div>
             <div className="nav-right">
               <div className={`nav-points ${animatePoints ? "pulse" : ""}`}>
@@ -667,6 +593,7 @@ export default function App() {
                   <button className="btn-primary" onClick={() => setScreen("matches")}>🏏 Bet on IPL →</button>
                   <button className="btn-primary" onClick={() => setScreen("fantasy11")} style={{ background: "#BA7517" }}>🏆 Fantasy 11 →</button>
                   <button className="btn-primary" onClick={() => { fetchAllHistory(); setScreen("history"); }} style={{ background: "#1D9E75" }}>My Bets →</button>
+                  <button className="btn-primary" onClick={() => setScreen("mines")} style={{ background: "#E24B4A" }}>💣 Mines →</button>
                 </div>
               </div>
               <div className="sports-grid">
@@ -745,9 +672,9 @@ export default function App() {
                         <div className="section-label">Pick Your Team</div>
                         <div className="team-grid">
                           {selectedSport?.teams.map(team => {
-                            const teamOdds = prefilledMatch?.odds?.[team];
+                            const teamOdds  = prefilledMatch?.odds?.[team];
                             const isSelected = selectedTeam === team;
-                            const isFav = teamOdds && prefilledMatch?.odds ? teamOdds === Math.min(...Object.values(prefilledMatch.odds)) : false;
+                            const isFav     = teamOdds && prefilledMatch?.odds ? teamOdds === Math.min(...Object.values(prefilledMatch.odds)) : false;
                             return (
                               <button key={team} className={`team-card ${isSelected ? "selected" : ""}`} onClick={() => setSelectedTeam(team)}>
                                 <span>{team}</span>
@@ -851,7 +778,6 @@ export default function App() {
             <div className="screen history-screen">
               <h2 className="screen-title">📜 My History</h2>
               <button className="btn-primary" style={{ marginBottom: 16, padding: "0.5rem 1.5rem" }} onClick={fetchAllHistory}>🔄 Refresh</button>
-
               <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
                 {historyTabs.map(tab => (
                   <button key={tab.key} onClick={() => setHistoryFilter(tab.key)} style={{
@@ -901,22 +827,18 @@ export default function App() {
                           )}
                           <span style={{ fontSize: 9, color: "#7d8590", marginLeft: "auto" }}>tap for details →</span>
                         </div>
-
                         {item.type === "fantasy11" ? (
                           <div style={{ fontSize: 12, marginTop: 4 }}>
                             <span style={{ opacity: 0.7 }}>{item.team}</span>
-                            {item.players?.length > 0 && (
-                              <span style={{ marginLeft: 8, opacity: 0.5, fontSize: 11 }}>· {item.players.length} players selected</span>
-                            )}
+                            {item.players?.length > 0 && <span style={{ marginLeft: 8, opacity: 0.5, fontSize: 11 }}>· {item.players.length} players selected</span>}
                           </div>
                         ) : (
                           <div style={{ fontSize: 12, opacity: 0.7, marginTop: 2 }}>
                             Picked: <strong>{item.team}</strong>
-                            {item.type === "contest" && item.contestName && <span style={{ marginLeft: 6, opacity: 0.6 }}>· {item.contestName}</span>}
-                            {item.type === "challenge" && item.opponent && <span style={{ marginLeft: 6, opacity: 0.6 }}>· vs {item.opponent}</span>}
+                            {item.type === "contest"   && item.contestName && <span style={{ marginLeft: 6, opacity: 0.6 }}>· {item.contestName}</span>}
+                            {item.type === "challenge" && item.opponent    && <span style={{ marginLeft: 6, opacity: 0.6 }}>· vs {item.opponent}</span>}
                           </div>
                         )}
-
                         {item.detail && (
                           <div style={{
                             fontSize: 11, marginTop: 3,
@@ -927,7 +849,6 @@ export default function App() {
                           </div>
                         )}
                       </div>
-
                       <div style={{ textAlign: "right" }}>
                         <div style={{
                           color: item.type === "fantasy11" ? (item.fantasyPoints !== null ? "#ffd166" : "#888780") : statusColor(item.status),
@@ -952,6 +873,14 @@ export default function App() {
               <Multiplayer username={username} points={points} setPoints={setPoints} />
             </div>
           )}
+
+          {/* ── MINES ── */}
+          {screen === "mines" && (
+            <div className="screen">
+              <Mines username={username} points={points} setPoints={setPoints} />
+            </div>
+          )}
+
         </>
       )}
     </div>
