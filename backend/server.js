@@ -238,99 +238,78 @@ app.get("/bets/:username", async (req, res) => {
 
 // ─── IPL Matches ──────────────────────────────────────────────────────────────
 const IPL_MATCHES = [
-  { id: "ipl1", team1: "RCB", team2: "SRH", date: "2026-03-28", time: "19:30", venue: "Bangalore" },
-  { id: "ipl2", team1: "MI", team2: "KKR", date: "2026-03-29", time: "19:30", venue: "Mumbai" },
-  { id: "ipl3", team1: "RR", team2: "CSK", date: "2026-03-30", time: "19:30", venue: "Guwahati" },
-  { id: "ipl4", team1: "PBKS", team2: "GT", date: "2026-03-31", time: "19:30", venue: "Mohali" },
-  { id: "ipl5", team1: "LSG", team2: "DC", date: "2026-04-01", time: "19:30", venue: "Lucknow" },
-
-  { id: "ipl6", team1: "KKR", team2: "SRH", date: "2026-04-02", time: "19:30", venue: "Kolkata" },
-  { id: "ipl7", team1: "CSK", team2: "PBKS", date: "2026-04-03", time: "19:30", venue: "Chennai" },
-
-  { id: "ipl8", team1: "DC", team2: "MI", date: "2026-04-04", time: "15:30", venue: "Delhi" },
-  { id: "ipl9", team1: "GT", team2: "RR", date: "2026-04-04", time: "19:30", venue: "Ahmedabad" },
-
-  { id: "ipl10", team1: "SRH", team2: "LSG", date: "2026-04-05", time: "15:30", venue: "Hyderabad" },
-  { id: "ipl11", team1: "RCB", team2: "CSK", date: "2026-04-05", time: "19:30", venue: "Bangalore" },
-
-  { id: "ipl12", team1: "KKR", team2: "PBKS", date: "2026-04-06", time: "19:30", venue: "Kolkata" },
-  { id: "ipl13", team1: "RR", team2: "MI", date: "2026-04-07", time: "19:30", venue: "Jaipur" },
-  { id: "ipl14", team1: "DC", team2: "GT", date: "2026-04-08", time: "19:30", venue: "Delhi" },
-  { id: "ipl15", team1: "KKR", team2: "LSG", date: "2026-04-09", time: "19:30", venue: "Kolkata" },
-
-  { id: "ipl16", team1: "RR", team2: "RCB", date: "2026-04-10", time: "19:30", venue: "Jaipur" },
-  { id: "ipl17", team1: "PBKS", team2: "SRH", date: "2026-04-11", time: "15:30", venue: "Mohali" },
-  { id: "ipl18", team1: "CSK", team2: "DC", date: "2026-04-11", time: "19:30", venue: "Chennai" },
-
-  { id: "ipl19", team1: "LSG", team2: "GT", date: "2026-04-12", time: "15:30", venue: "Lucknow" },
-  { id: "ipl20", team1: "MI", team2: "RCB", date: "2026-04-12", time: "19:30", venue: "Mumbai" },
-
-  { id: "ipl21", team1: "SRH", team2: "RR", date: "2026-04-13", time: "19:30", venue: "Hyderabad" },
-  { id: "ipl22", team1: "CSK", team2: "KKR", date: "2026-04-14", time: "19:30", venue: "Chennai" },
-  { id: "ipl23", team1: "RCB", team2: "LSG", date: "2026-04-15", time: "19:30", venue: "Bangalore" },
-  { id: "ipl24", team1: "MI", team2: "PBKS", date: "2026-04-16", time: "19:30", venue: "Mumbai" },
-  { id: "ipl25", team1: "GT", team2: "KKR", date: "2026-04-17", time: "19:30", venue: "Ahmedabad" },
-
-  { id: "ipl26", team1: "RCB", team2: "DC", date: "2026-04-18", time: "15:30", venue: "Bangalore" },
-  { id: "ipl27", team1: "SRH", team2: "CSK", date: "2026-04-18", time: "19:30", venue: "Hyderabad" },
-
-  { id: "ipl28", team1: "KKR", team2: "RR", date: "2026-04-19", time: "15:30", venue: "Kolkata" },
-  { id: "ipl29", team1: "PBKS", team2: "LSG", date: "2026-04-19", time: "19:30", venue: "Mohali" },
-
-  { id: "ipl30", team1: "GT", team2: "MI", date: "2026-04-20", time: "19:30", venue: "Ahmedabad" },
-  { id: "ipl31", team1: "SRH", team2: "DC", date: "2026-04-21", time: "19:30", venue: "Hyderabad" },
-  { id: "ipl32", team1: "LSG", team2: "RR", date: "2026-04-22", time: "19:30", venue: "Lucknow" },
-  { id: "ipl33", team1: "MI", team2: "CSK", date: "2026-04-23", time: "19:30", venue: "Mumbai" },
-  { id: "ipl34", team1: "RCB", team2: "GT", date: "2026-04-24", time: "19:30", venue: "Bangalore" },
-
-  { id: "ipl35", team1: "DC", team2: "PBKS", date: "2026-04-25", time: "15:30", venue: "Delhi" },
-  { id: "ipl36", team1: "RR", team2: "SRH", date: "2026-04-25", time: "19:30", venue: "Jaipur" },
-
-  { id: "ipl37", team1: "GT", team2: "CSK", date: "2026-04-26", time: "15:30", venue: "Ahmedabad" },
-  { id: "ipl38", team1: "LSG", team2: "KKR", date: "2026-04-26", time: "19:30", venue: "Lucknow" },
-
-  { id: "ipl39", team1: "DC", team2: "RCB", date: "2026-04-27", time: "19:30", venue: "Delhi" },
-  { id: "ipl40", team1: "PBKS", team2: "RR", date: "2026-04-28", time: "19:30", venue: "Mohali" },
-  { id: "ipl41", team1: "MI", team2: "SRH", date: "2026-04-29", time: "19:30", venue: "Mumbai" },
-  { id: "ipl42", team1: "GT", team2: "RCB", date: "2026-04-30", time: "19:30", venue: "Ahmedabad" },
-
-  { id: "ipl43", team1: "RR", team2: "DC", date: "2026-05-01", time: "19:30", venue: "Jaipur" },
-  { id: "ipl44", team1: "CSK", team2: "MI", date: "2026-05-02", time: "19:30", venue: "Chennai" },
-
-  { id: "ipl45", team1: "SRH", team2: "KKR", date: "2026-05-03", time: "15:30", venue: "Hyderabad" },
-  { id: "ipl46", team1: "GT", team2: "PBKS", date: "2026-05-03", time: "19:30", venue: "Ahmedabad" },
-
-  { id: "ipl47", team1: "MI", team2: "LSG", date: "2026-05-04", time: "19:30", venue: "Mumbai" },
-  { id: "ipl48", team1: "DC", team2: "CSK", date: "2026-05-05", time: "19:30", venue: "Delhi" },
-  { id: "ipl49", team1: "SRH", team2: "PBKS", date: "2026-05-06", time: "19:30", venue: "Hyderabad" },
-  { id: "ipl50", team1: "LSG", team2: "RCB", date: "2026-05-07", time: "19:30", venue: "Lucknow" },
-
-  { id: "ipl51", team1: "DC", team2: "KKR", date: "2026-05-08", time: "19:30", venue: "Delhi" },
-  { id: "ipl52", team1: "RR", team2: "GT", date: "2026-05-09", time: "19:30", venue: "Jaipur" },
-
-  { id: "ipl53", team1: "CSK", team2: "LSG", date: "2026-05-10", time: "15:30", venue: "Chennai" },
-  { id: "ipl54", team1: "RCB", team2: "MI", date: "2026-05-10", time: "19:30", venue: "Bangalore" },
-
-  { id: "ipl55", team1: "PBKS", team2: "DC", date: "2026-05-11", time: "19:30", venue: "Mohali" },
-  { id: "ipl56", team1: "GT", team2: "SRH", date: "2026-05-12", time: "19:30", venue: "Ahmedabad" },
-  { id: "ipl57", team1: "RCB", team2: "KKR", date: "2026-05-13", time: "19:30", venue: "Bangalore" },
-  { id: "ipl58", team1: "PBKS", team2: "MI", date: "2026-05-14", time: "19:30", venue: "Dharamsala" },
-  { id: "ipl59", team1: "LSG", team2: "CSK", date: "2026-05-15", time: "19:30", venue: "Lucknow" },
-  { id: "ipl60", team1: "KKR", team2: "GT", date: "2026-05-16", time: "19:30", venue: "Kolkata" },
-
-  { id: "ipl61", team1: "PBKS", team2: "RCB", date: "2026-05-17", time: "15:30", venue: "Dharamsala" },
-  { id: "ipl62", team1: "DC", team2: "RR", date: "2026-05-17", time: "19:30", venue: "Delhi" },
-
-  { id: "ipl63", team1: "CSK", team2: "SRH", date: "2026-05-18", time: "19:30", venue: "Chennai" },
-  { id: "ipl64", team1: "RR", team2: "LSG", date: "2026-05-19", time: "19:30", venue: "Jaipur" },
-  { id: "ipl65", team1: "KKR", team2: "MI", date: "2026-05-20", time: "19:30", venue: "Kolkata" },
-  { id: "ipl66", team1: "CSK", team2: "GT", date: "2026-05-21", time: "19:30", venue: "Chennai" },
-  { id: "ipl67", team1: "SRH", team2: "RCB", date: "2026-05-22", time: "19:30", venue: "Hyderabad" },
-  { id: "ipl68", team1: "LSG", team2: "PBKS", date: "2026-05-23", time: "19:30", venue: "Lucknow" },
-
-  { id: "ipl69", team1: "MI", team2: "RR", date: "2026-05-24", time: "15:30", venue: "Mumbai" },
-  { id: "ipl70", team1: "KKR", team2: "DC", date: "2026-05-24", time: "19:30", venue: "Kolkata" }
+  { id: 1,  team1: "RCB",  team2: "SRH",  date: "2026-03-28", time: "19:30", venue: "Bangalore" },
+  { id: 2,  team1: "MI",   team2: "KKR",  date: "2026-03-29", time: "19:30", venue: "Mumbai" },
+  { id: 3,  team1: "RR",   team2: "CSK",  date: "2026-03-30", time: "19:30", venue: "Guwahati" },
+  { id: 4,  team1: "PBKS", team2: "GT",   date: "2026-03-31", time: "19:30", venue: "Mohali" },
+  { id: 5,  team1: "LSG",  team2: "DC",   date: "2026-04-01", time: "19:30", venue: "Lucknow" },
+  { id: 6,  team1: "SRH",  team2: "LSG",  date: "2026-04-02", time: "19:30", venue: "Hyderabad" },
+  { id: 7,  team1: "RCB",  team2: "CSK",  date: "2026-04-03", time: "19:30", venue: "Bangalore" },
+  { id: 8,  team1: "DC",   team2: "MI",   date: "2026-04-04", time: "15:30", venue: "Delhi" },
+  { id: 9,  team1: "GT",   team2: "RR",   date: "2026-04-04", time: "19:30", venue: "Ahmedabad" },
+  { id: 10, team1: "KKR",  team2: "PBKS", date: "2026-04-05", time: "15:30", venue: "Kolkata" },
+  { id: 11, team1: "CSK",  team2: "MI",   date: "2026-04-05", time: "19:30", venue: "Chennai" },
+  { id: 12, team1: "LSG",  team2: "RCB",  date: "2026-04-06", time: "19:30", venue: "Lucknow" },
+  { id: 13, team1: "SRH",  team2: "DC",   date: "2026-04-07", time: "19:30", venue: "Hyderabad" },
+  { id: 14, team1: "RR",   team2: "KKR",  date: "2026-04-08", time: "19:30", venue: "Jaipur" },
+  { id: 15, team1: "PBKS", team2: "GT",   date: "2026-04-09", time: "19:30", venue: "Mohali" },
+  { id: 16, team1: "MI",   team2: "LSG",  date: "2026-04-10", time: "19:30", venue: "Mumbai" },
+  { id: 17, team1: "RCB",  team2: "RR",   date: "2026-04-11", time: "19:30", venue: "Bangalore" },
+  { id: 18, team1: "CSK",  team2: "SRH",  date: "2026-04-12", time: "15:30", venue: "Chennai" },
+  { id: 19, team1: "DC",   team2: "KKR",  date: "2026-04-12", time: "19:30", venue: "Delhi" },
+  { id: 20, team1: "GT",   team2: "MI",   date: "2026-04-13", time: "19:30", venue: "Ahmedabad" },
+  { id: 21, team1: "SRH",  team2: "RR",   date: "2026-04-13", time: "19:30", venue: "Hyderabad" },
+  { id: 22, team1: "CSK",  team2: "KKR",  date: "2026-04-14", time: "19:30", venue: "Chennai" },
+  { id: 23, team1: "RCB",  team2: "LSG",  date: "2026-04-15", time: "19:30", venue: "Bangalore" },
+  { id: 24, team1: "MI",   team2: "PBKS", date: "2026-04-16", time: "19:30", venue: "Mumbai" },
+  { id: 25, team1: "GT",   team2: "KKR",  date: "2026-04-17", time: "19:30", venue: "Ahmedabad" },
+  { id: 26, team1: "RCB",  team2: "DC",   date: "2026-04-18", time: "15:30", venue: "Bangalore" },
+  { id: 27, team1: "SRH",  team2: "CSK",  date: "2026-04-18", time: "19:30", venue: "Hyderabad" },
+  { id: 28, team1: "KKR",  team2: "RR",   date: "2026-04-19", time: "15:30", venue: "Kolkata" },
+  { id: 29, team1: "PBKS", team2: "LSG",  date: "2026-04-19", time: "19:30", venue: "Mohali" },
+  { id: 30, team1: "GT",   team2: "MI",   date: "2026-04-20", time: "19:30", venue: "Ahmedabad" },
+  { id: 31, team1: "SRH",  team2: "DC",   date: "2026-04-21", time: "19:30", venue: "Hyderabad" },
+  { id: 32, team1: "LSG",  team2: "RR",   date: "2026-04-22", time: "19:30", venue: "Lucknow" },
+  { id: 33, team1: "MI",   team2: "CSK",  date: "2026-04-23", time: "19:30", venue: "Mumbai" },
+  { id: 34, team1: "RCB",  team2: "GT",   date: "2026-04-24", time: "19:30", venue: "Bangalore" },
+  { id: 35, team1: "DC",   team2: "PBKS", date: "2026-04-25", time: "15:30", venue: "Delhi" },
+  { id: 36, team1: "RR",   team2: "SRH",  date: "2026-04-25", time: "19:30", venue: "Jaipur" },
+  { id: 37, team1: "GT",   team2: "CSK",  date: "2026-04-26", time: "15:30", venue: "Ahmedabad" },
+  { id: 38, team1: "LSG",  team2: "KKR",  date: "2026-04-26", time: "19:30", venue: "Lucknow" },
+  { id: 39, team1: "DC",   team2: "RCB",  date: "2026-04-27", time: "19:30", venue: "Delhi" },
+  { id: 40, team1: "PBKS", team2: "RR",   date: "2026-04-28", time: "19:30", venue: "Mohali" },
+  { id: 41, team1: "MI",   team2: "SRH",  date: "2026-04-29", time: "19:30", venue: "Mumbai" },
+  { id: 42, team1: "GT",   team2: "RCB",  date: "2026-04-30", time: "19:30", venue: "Ahmedabad" },
+  { id: 43, team1: "RR",   team2: "DC",   date: "2026-05-01", time: "19:30", venue: "Jaipur" },
+  { id: 44, team1: "CSK",  team2: "MI",   date: "2026-05-02", time: "19:30", venue: "Chennai" },
+  { id: 45, team1: "SRH",  team2: "KKR",  date: "2026-05-03", time: "15:30", venue: "Hyderabad" },
+  { id: 46, team1: "GT",   team2: "PBKS", date: "2026-05-03", time: "19:30", venue: "Ahmedabad" },
+  { id: 47, team1: "MI",   team2: "LSG",  date: "2026-05-04", time: "19:30", venue: "Mumbai" },
+  { id: 48, team1: "DC",   team2: "CSK",  date: "2026-05-05", time: "19:30", venue: "Delhi" },
+  { id: 49, team1: "SRH",  team2: "PBKS", date: "2026-05-06", time: "19:30", venue: "Hyderabad" },
+  { id: 50, team1: "LSG",  team2: "RCB",  date: "2026-05-07", time: "19:30", venue: "Lucknow" },
+  { id: 51, team1: "DC",   team2: "KKR",  date: "2026-05-08", time: "19:30", venue: "Delhi" },
+  { id: 52, team1: "RR",   team2: "GT",   date: "2026-05-09", time: "19:30", venue: "Jaipur" },
+  { id: 53, team1: "CSK",  team2: "LSG",  date: "2026-05-10", time: "15:30", venue: "Chennai" },
+  { id: 54, team1: "RCB",  team2: "MI",   date: "2026-05-10", time: "19:30", venue: "Bangalore" },
+  { id: 55, team1: "PBKS", team2: "DC",   date: "2026-05-11", time: "19:30", venue: "Mohali" },
+  { id: 56, team1: "GT",   team2: "SRH",  date: "2026-05-12", time: "19:30", venue: "Ahmedabad" },
+  { id: 57, team1: "RCB",  team2: "KKR",  date: "2026-05-13", time: "19:30", venue: "Bangalore" },
+  { id: 58, team1: "PBKS", team2: "MI",   date: "2026-05-14", time: "19:30", venue: "Dharamsala" },
+  { id: 59, team1: "LSG",  team2: "CSK",  date: "2026-05-15", time: "19:30", venue: "Lucknow" },
+  { id: 60, team1: "KKR",  team2: "GT",   date: "2026-05-16", time: "19:30", venue: "Kolkata" },
+  { id: 61, team1: "PBKS", team2: "RCB",  date: "2026-05-17", time: "15:30", venue: "Dharamsala" },
+  { id: 62, team1: "DC",   team2: "RR",   date: "2026-05-17", time: "19:30", venue: "Delhi" },
+  { id: 63, team1: "CSK",  team2: "SRH",  date: "2026-05-18", time: "19:30", venue: "Chennai" },
+  { id: 64, team1: "RR",   team2: "LSG",  date: "2026-05-19", time: "19:30", venue: "Jaipur" },
+  { id: 65, team1: "KKR",  team2: "MI",   date: "2026-05-20", time: "19:30", venue: "Kolkata" },
+  { id: 66, team1: "CSK",  team2: "GT",   date: "2026-05-21", time: "19:30", venue: "Chennai" },
+  { id: 67, team1: "SRH",  team2: "RCB",  date: "2026-05-22", time: "19:30", venue: "Hyderabad" },
+  { id: 68, team1: "LSG",  team2: "PBKS", date: "2026-05-23", time: "19:30", venue: "Lucknow" },
+  { id: 69, team1: "MI",   team2: "RR",   date: "2026-05-24", time: "15:30", venue: "Mumbai" },
+  { id: 70, team1: "KKR",  team2: "DC",   date: "2026-05-24", time: "19:30", venue: "Kolkata" },
 ];
+
 const TEAM_NAME_MAP = {
   RCB:  ["Royal Challengers Bengaluru", "Royal Challengers Bangalore", "RCB"],
   MI:   ["Mumbai Indians", "MI"],
@@ -842,19 +821,19 @@ app.get("/contests/:username", async (req, res) => {
   } catch (err) { res.status(500).json({ message: "Server error" }); }
 });
 
-// ─── FIX: Atomic join — prevents duplicate joins via $elemMatch + $not ────────
+// ─── FIX: Atomic join — race condition fix (removed stale early duplicate check) ──
 app.post("/contest/join", async (req, res) => {
   try {
     const { contestId, username, team, password } = req.body;
     if (!contestId || !username || !team) return res.status(400).json({ message: "Missing fields" });
 
-    const contest = await Contest.findById(contestId);
+    // Fetch only metadata fields — NOT the full participants array.
+    // Loading participants here creates a stale snapshot that causes the
+    // "4/3 players" race condition: two concurrent requests both pass the
+    // early duplicate/full check before either write commits.
+    const contest = await Contest.findById(contestId).select("status visibility password entryFee maxPlayers");
     if (!contest) return res.status(404).json({ message: "Contest not found" });
     if (contest.status !== "open") return res.status(400).json({ message: "Contest is not open" });
-
-    // Early duplicate check (fast path before hitting DB atomically)
-    if (contest.participants.find(p => p.username.toLowerCase() === username.toLowerCase()))
-      return res.status(400).json({ message: "You already joined this contest" });
 
     if (contest.visibility === "private") {
       if (!password) return res.status(403).json({ message: "This contest requires a password" });
@@ -865,10 +844,9 @@ app.post("/contest/join", async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found" });
     if (user.points < contest.entryFee) return res.status(400).json({ message: "Not enough points" });
 
-    // ── FIXED: use $elemMatch + $not for correct array duplicate check ────
-    // The old regex approach ($not: new RegExp) was silently failing on arrays,
-    // allowing the same user to join twice under race conditions (double-tap).
-    // $elemMatch correctly checks each array element individually.
+    // Single atomic operation — the ONLY guard against duplicates and overflow.
+    // $elemMatch correctly checks each array element; $expr enforces the cap.
+    // No race window exists here because MongoDB applies both conditions atomically.
     const updated = await Contest.findOneAndUpdate(
       {
         _id: contest._id,
@@ -886,7 +864,7 @@ app.post("/contest/join", async (req, res) => {
 
     if (!updated) return res.status(400).json({ message: "Contest is full or you already joined!" });
 
-    // Deduct entry fee only after successful atomic join
+    // Deduct entry fee only after confirmed atomic join
     user.points -= contest.entryFee;
     await user.save();
 
