@@ -98,10 +98,8 @@ async function settleContest(contest, winnerTeamName, totalPot) {
   let winningTeam = winnerTeamName;
 
   if (isF11) {
-    // Get Fantasy11Team model safely
     const Fantasy11Team = mongoose.models.Fantasy11Team;
     if (!Fantasy11Team) {
-      // Fallback: refund everyone
       console.log(`Fantasy11Team model not found for contest ${contest._id}, refunding`);
       for (const p of contest.participants) {
         const u = await User.findOne({ name: p.username });
@@ -114,8 +112,15 @@ async function settleContest(contest, winnerTeamName, totalPot) {
       return;
     }
 
-    // Find fantasy points for all participants
-    const matchIds = [contest.matchId, `ipl-${contest.matchId}`, contest.matchId.replace("ipl", "ipl-")];
+    // ── FIX 1: Cover all matchId formats (ipl-4, ipl4, 4) ─────────────────
+    const rawId = contest.matchId.replace(/^ipl-?/, "");
+    const matchIds = [
+      contest.matchId,
+      `ipl-${rawId}`,
+      `ipl${rawId}`,
+      rawId,
+    ];
+
     const f11Teams = await Fantasy11Team.find({
       username: { $in: contest.participants.map(p => p.username) },
       matchId: { $in: matchIds },
@@ -135,7 +140,6 @@ async function settleContest(contest, winnerTeamName, totalPot) {
       return;
     }
 
-    // Find highest scorer(s)
     const maxPts = Math.max(...f11Teams.map(t => t.fantasyPoints));
     const topTeams = f11Teams.filter(t => t.fantasyPoints === maxPts);
     winners = contest.participants.filter(p => topTeams.some(t => t.username === p.username));
@@ -560,20 +564,16 @@ app.post("/admin/fix-bet", async (req, res) => {
       const payout = Math.floor(bet.amount * multiplier);
 
       if (bet.status === "lost" && won) {
-        // Was marked lost but should have won — pay them out
         user.points += payout;
         await user.save();
         bet.status = "won";
         await bet.save();
         fixed++;
       } else if (bet.status === "won" && !won) {
-        // Was marked won but should have lost — claw back payout
-        // Claw back as much as they still have; log if they've already spent it
         const clawback = Math.min(user.points, payout);
         user.points -= clawback;
         const debt = payout - clawback;
         if (debt > 0) {
-          // They've spent the wrongly awarded points — log for manual review
           user.lockedPoints = Math.max(0, (user.lockedPoints || 0) - debt);
           console.warn(`Bet fix: ${bet.username} short by ${debt} pts (already spent wrong payout) on ${matchId}`);
         }
@@ -602,20 +602,17 @@ app.post("/admin/fix-bet", async (req, res) => {
         });
 
         for (const contest of settledContests) {
-          // Already correct — skip
           if (contest.winningTeam === correctWinningTeam) continue;
 
           const totalPot = contest.entryFee * contest.participants.length;
           const wrongWinners   = contest.participants.filter(p => p.team === contest.winningTeam);
           const correctWinners = contest.participants.filter(p => p.team === correctWinningTeam);
 
-          // ── Step 1: Claw back from wrong winners ──────────────────────────
           if (wrongWinners.length > 0) {
             const wrongPrize = Math.floor(totalPot / wrongWinners.length);
             for (const p of wrongWinners) {
               const u = await User.findOne({ name: p.username });
               if (!u) continue;
-              // Claw back as much as they still have; log if they've spent it
               const clawback = Math.min(u.points, wrongPrize);
               u.points -= clawback;
               const debt = wrongPrize - clawback;
@@ -626,9 +623,7 @@ app.post("/admin/fix-bet", async (req, res) => {
             }
           }
 
-          // ── Step 2: Pay correct winners or refund all if no correct picks ─
           if (correctWinners.length === 0) {
-            // Nobody picked the right team — refund everyone their entry fee
             for (const p of contest.participants) {
               const u = await User.findOne({ name: p.username });
               if (u) { u.points += contest.entryFee; await u.save(); }
@@ -686,7 +681,7 @@ app.post("/admin/settle-all", async (req, res) => {
       await user.save(); bet.status = won ? "won" : "lost"; await bet.save(); betsSettled++;
     }
 
-    // 2. Settle Contests (uses settleContest helper — handles Fantasy11 automatically)
+    // 2. Settle Contests
     let contestsSettled = 0;
     if (iplMatch) {
       const relatedContests = await Contest.find({ status: { $in: ["open", "locked"] }, team1: iplMatch.team1, team2: iplMatch.team2 });
@@ -826,24 +821,54 @@ app.get("/contests/:username", async (req, res) => {
   } catch (err) { res.status(500).json({ message: "Server error" }); }
 });
 
+// ─── FIX 2: Atomic join — prevents duplicate joins and over-limit race condition
 app.post("/contest/join", async (req, res) => {
   try {
     const { contestId, username, team, password } = req.body;
     if (!contestId || !username || !team) return res.status(400).json({ message: "Missing fields" });
+
     const contest = await Contest.findById(contestId);
     if (!contest) return res.status(404).json({ message: "Contest not found" });
     if (contest.status !== "open") return res.status(400).json({ message: "Contest is not open" });
-    if (contest.participants.length >= contest.maxPlayers) return res.status(400).json({ message: "Contest is full!" });
-    if (contest.participants.find(p => p.username === username)) return res.status(400).json({ message: "You already joined this contest" });
-    if (contest.visibility === "private") { if (!password) return res.status(403).json({ message: "This contest requires a password" }); if (password !== contest.password) return res.status(403).json({ message: "Wrong password — please try again" }); }
+
+    // ── FIX: case-insensitive duplicate check ─────────────────────────────
+    if (contest.participants.find(p => p.username.toLowerCase() === username.toLowerCase()))
+      return res.status(400).json({ message: "You already joined this contest" });
+
+    if (contest.visibility === "private") {
+      if (!password) return res.status(403).json({ message: "This contest requires a password" });
+      if (password !== contest.password) return res.status(403).json({ message: "Wrong password — please try again" });
+    }
+
     const user = await User.findOne({ name: username });
     if (!user) return res.status(404).json({ message: "User not found" });
     if (user.points < contest.entryFee) return res.status(400).json({ message: "Not enough points" });
-    user.points -= contest.entryFee; await user.save();
-    contest.participants.push({ username, team });
-    if (contest.participants.length >= contest.maxPlayers) contest.status = "locked";
-    await contest.save();
-    res.json({ message: "Joined contest!", contest, userPoints: user.points });
+
+    // ── FIX: atomic push — only succeeds if still under maxPlayers ────────
+    const updated = await Contest.findOneAndUpdate(
+      {
+        _id: contest._id,
+        status: "open",
+        $expr: { $lt: [{ $size: "$participants" }, "$maxPlayers"] },
+        "participants.username": { $not: new RegExp(`^${username}$`, "i") },
+      },
+      { $push: { participants: { username, team } } },
+      { new: true }
+    );
+
+    if (!updated) return res.status(400).json({ message: "Contest is full or you already joined!" });
+
+    // Deduct entry fee
+    user.points -= contest.entryFee;
+    await user.save();
+
+    // Lock if now full
+    if (updated.participants.length >= updated.maxPlayers) {
+      updated.status = "locked";
+      await updated.save();
+    }
+
+    res.json({ message: "Joined contest!", contest: updated, userPoints: user.points });
   } catch (err) { console.error(err); res.status(500).json({ message: "Server error" }); }
 });
 
