@@ -2,6 +2,7 @@ import Multiplayer from "./Multiplayer";
 import Matches from "./Matches";
 import Fantasy11 from "./Fantasy11";
 import React, { useState, useEffect } from "react";
+import Mines from "./Mines";
 import "./App.css";
 
 const API = "https://betting-backend-xq1q.onrender.com";
@@ -219,6 +220,8 @@ function DetailModal({ item, onClose }) {
           display: "flex", justifyContent: "space-between", alignItems: "center",
           background: "#FAFAF7",
         }}>
+          // After line 222 (the ⚔️ Multiplayer nav button)
+<button className={screen === "mines" ? "active" : ""} onClick={() => setScreen("mines")}>💣 Mines</button>
           <div>
             <div style={{ fontSize: 15, fontWeight: 700, color: "#444441" }}>
               {item.typeEmoji} {item.typeLabel} Details
@@ -412,6 +415,16 @@ export default function App() {
           matchId: t.matchId,
         };
       });
+      // After line 415 — add this block
+{screen === "mines" && (
+  <div className="screen">
+    <Mines
+      username={username}
+      points={points}
+      setPoints={setPoints}
+    />
+  </div>
+)}
 
       const merged = [
         ...normalizedBets,

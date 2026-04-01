@@ -945,6 +945,35 @@ app.get("/leaderboard", async (req, res) => {
   } catch (err) { res.status(500).json({ message: "Server error" }); }
 });
 
+// ─── Mines Game ───────────────────────────────────────────────────────────────
+app.post("/mines/start", async (req, res) => {
+  try {
+    const { username, bet } = req.body;
+    const user = await User.findOne({ name: username });
+    if (!user) return res.status(404).json({ message: "User not found" });
+    if (bet <= 0 || bet > user.points)
+      return res.status(400).json({ message: "Invalid bet amount" });
+    user.points -= bet;
+    await user.save();
+    res.json({ message: "Bet deducted. Game started.", points: user.points });
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+app.post("/mines/cashout", async (req, res) => {
+  try {
+    const { username, winnings } = req.body;
+    const user = await User.findOne({ name: username });
+    if (!user) return res.status(404).json({ message: "User not found" });
+    user.points += Math.floor(winnings);
+    await user.save();
+    res.json({ message: "Winnings added!", points: user.points });
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 // ─── Start ────────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
