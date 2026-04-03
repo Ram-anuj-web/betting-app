@@ -89,8 +89,6 @@ const Contest   = mongoose.model("Contest", contestSchema);
 // Fantasy11Team is handled in models.js — do not register it here
 
 // ─── Fantasy11 Contest Settlement Helper ──────────────────────────────────────
-// Detects if a contest is Fantasy11 mode (all participants have team="fantasy11")
-// and settles by highest fantasy points instead of team pick.
 async function settleContest(contest, winnerTeamName, totalPot) {
   const isF11 = contest.participants.every(p => p.team === "fantasy11");
 
@@ -112,7 +110,6 @@ async function settleContest(contest, winnerTeamName, totalPot) {
       return;
     }
 
-    // ── FIX 1: Cover all matchId formats (ipl-4, ipl4, 4) ─────────────────
     const rawId = contest.matchId.replace(/^ipl-?/, "");
     const matchIds = [
       contest.matchId,
@@ -595,7 +592,6 @@ app.post("/admin/fix-bet", async (req, res) => {
     const { matchId, winner } = req.body;
     if (!matchId || !winner) return res.status(400).json({ message: "matchId and winner are required" });
 
-    // ── 1. Fix Bets ───────────────────────────────────────────────────────────
     const bets = await Bet.find({ matchId });
     let fixed = 0;
     for (const bet of bets) {
@@ -626,7 +622,6 @@ app.post("/admin/fix-bet", async (req, res) => {
       }
     }
 
-    // ── 2. Fix Contests ───────────────────────────────────────────────────────
     let contestsFixed = 0;
     if (matchId.startsWith("ipl-")) {
       const iplId = parseInt(matchId.replace("ipl-", ""));
@@ -704,6 +699,31 @@ app.post("/admin/fix-bet", async (req, res) => {
   }
 });
 
+// ─── Admin: Fix Fantasy11 double ipl- prefix in matchId ──────────────────────
+app.post("/admin/fix-fantasy11-matchid", async (req, res) => {
+  try {
+    const Fantasy11Team = mongoose.models.Fantasy11Team;
+    if (!Fantasy11Team) return res.status(500).json({ message: "Fantasy11Team model not found" });
+    const result6 = await Fantasy11Team.updateMany(
+      { matchId: "ipl-ipl-6" },
+      { $set: { matchId: "ipl-6" } }
+    );
+    const result7 = await Fantasy11Team.updateMany(
+      { matchId: "ipl-ipl-7" },
+      { $set: { matchId: "ipl-7" } }
+    );
+    res.json({
+      message: "✅ matchId fix complete!",
+      fixed6: result6.modifiedCount,
+      fixed7: result7.modifiedCount,
+    });
+  } catch (err) {
+    console.error("fix-fantasy11-matchid error:", err.message);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// ─── Admin: Settle All ────────────────────────────────────────────────────────
 app.post("/admin/settle-all", async (req, res) => {
   try {
     const { matchId, winner } = req.body;
@@ -863,7 +883,6 @@ app.get("/contests/:username", async (req, res) => {
   } catch (err) { res.status(500).json({ message: "Server error" }); }
 });
 
-// ─── FIX: Atomic join — race condition fix (removed stale early duplicate check) ──
 app.post("/contest/join", async (req, res) => {
   try {
     const { contestId, username, team, password } = req.body;
