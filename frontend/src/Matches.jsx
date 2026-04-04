@@ -28,7 +28,6 @@ const TEAM_LOGOS = {
   DC:   "https://scores.iplt20.com/ipl/teamlogos/DC.png",
 };
 
-// Determine favourite vs underdog label from odds
 function getOddsLabel(odds, team1, team2) {
   if (!odds) return { [team1]: null, [team2]: null };
   const o1 = odds[team1];
@@ -40,7 +39,6 @@ function getOddsLabel(odds, team1, team2) {
   };
 }
 
-// Colour-coded odds chip
 function OddsChip({ team, odds, role }) {
   if (!odds) return null;
   const isFav = role === "favourite";
@@ -74,7 +72,7 @@ export default function Matches({ onBetOnMatch }) {
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState("");
   const [filter, setFilter]     = useState("all");
-  const [oddsMap, setOddsMap]   = useState({}); // { "ipl-2": { MI: 1.8, KKR: 2.1 }, ... }
+  const [oddsMap, setOddsMap]   = useState({});
   const [oddsLoading, setOddsLoading] = useState(false);
 
   useEffect(() => { fetchMatches(); }, []);
@@ -88,7 +86,6 @@ export default function Matches({ onBetOnMatch }) {
       const data = await res.json();
       const list = Array.isArray(data) ? data : data.matches || [];
       setMatches(list);
-      // Fetch bulk odds after matches load
       fetchBulkOdds();
     } catch (err) {
       console.error("fetchMatches error:", err);
@@ -170,7 +167,6 @@ export default function Matches({ onBetOnMatch }) {
     }),
     vs: { fontSize: 11, color: "#b4b2a9", fontWeight: 500, padding: "0 8px", paddingTop: 10 },
     meta: { fontSize: 12, color: "#888780", marginBottom: 8 },
-    // Odds bar
     oddsBar: {
       display: "flex", alignItems: "center", gap: 0,
       borderRadius: 8, overflow: "hidden", marginBottom: 12,
@@ -269,11 +265,11 @@ export default function Matches({ onBetOnMatch }) {
       )}
 
       {!loading && !error && filtered.map(match => {
-        const matchKey = `ipl-${match.id}`;
+        // ✅ FIX: match.id is already "ipl-6" so use it directly for oddsMap key
+        const matchKey = match.id;
         const odds = oddsMap[matchKey] || null;
         const roles = getOddsLabel(odds, match.team1, match.team2);
 
-        // Probability bar widths from odds (lower odds = higher implied probability)
         let team1Pct = 50, team2Pct = 50;
         if (odds && odds[match.team1] && odds[match.team2]) {
           const p1 = 1 / odds[match.team1];
@@ -388,7 +384,7 @@ export default function Matches({ onBetOnMatch }) {
                   matchLabel: `${match.team1} vs ${match.team2}`,
                   teams: [match.team1, match.team2],
                   sport: "cricket",
-                  matchId: `ipl-${match.id}`,
+                  matchId: match.id, // ✅ FIX: was `ipl-${match.id}` which caused ipl-ipl-6 bug
                   odds: odds || null,
                 })}
               >
