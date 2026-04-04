@@ -94,6 +94,18 @@ function isMatchStarted(contest) {
   return new Date() >= matchDate;
 }
 
+// ── FIX: Helper to determine contest result for a user ────────────────────────
+function getContestResult(c, username) {
+  const winner = c.winner || "";
+  const isRefund = winner === "refund" || winner === "no_scores" || winner === "";
+  const isSolo   = c.participants.length === 1 && c.participants[0]?.username === username;
+  const iWon     = !isRefund && winner.split(", ").includes(username);
+
+  if (isRefund || isSolo) return "refund";
+  if (iWon) return "won";
+  return "lost";
+}
+
 // ── Mode Picker Component ─────────────────────────────────────────────────────
 function ModePicker({ value, onChange }) {
   return (
@@ -146,7 +158,6 @@ function Fantasy11Banner({ matchId, matchLabel, teams }) {
   );
 }
 
-// ── FIX 1: Added "live" entry to statusBadge ──────────────────────────────────
 function statusBadge(status) {
   const map = {
     pending:   { label: "Pending",   color: "#BA7517", bg: "#FAEEDA" },
@@ -155,7 +166,7 @@ function statusBadge(status) {
     cancelled: { label: "Cancelled", color: "#5F5E5A", bg: "#F1EFE8" },
     open:      { label: "Open",      color: "#085041", bg: "#E1F5EE" },
     locked:    { label: "Locked",    color: "#BA7517", bg: "#FAEEDA" },
-    live:      { label: "🔴 Live",   color: "#8B0000", bg: "#FFE4E4" }, // ✅ NEW
+    live:      { label: "🔴 Live",   color: "#8B0000", bg: "#FFE4E4" },
   };
   const s = map[status] || map.cancelled;
   return (
@@ -431,7 +442,6 @@ function HowItWorks() {
 export default function Multiplayer({ username, points, setPoints }) {
   const [view, setView] = useState("list");
 
-  // Challenge state
   const [challenges, setChallenges]           = useState([]);
   const [challengeMode, setChallengeMode]     = useState("bet");
   const [challengeVisibility, setChallengeVisibility] = useState("public");
@@ -446,7 +456,6 @@ export default function Multiplayer({ username, points, setPoints }) {
   const [acceptingId, setAcceptingId]         = useState(null);
   const [acceptTeam, setAcceptTeam]           = useState(null);
 
-  // Contest state
   const [contests, setContests]             = useState([]);
   const [openContests, setOpenContests]     = useState([]);
   const [contestMode, setContestMode]       = useState("bet");
@@ -811,6 +820,15 @@ export default function Multiplayer({ username, points, setPoints }) {
             const opponent     = isChallenger ? c.opponent : c.challenger;
             const sport        = SPORTS.find(s => s.id === c.sport);
             const isF11        = isF11Challenge(c);
+
+            // ── FIX: correct challenge result labels ──────────────────────────
+            const challengeResult = (() => {
+              if (c.status !== "settled") return null;
+              if (c.winner === "draw") return "draw";
+              if (c.winner === username) return "won";
+              return "lost";
+            })();
+
             return (
               <div key={c._id} style={S.card}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
@@ -847,9 +865,21 @@ export default function Multiplayer({ username, points, setPoints }) {
                 )}
 
                 {c.status === "active" && <div style={S.autoSettleNotice}>⏳ Auto-settling after match ends via Cricket API</div>}
-                {c.status === "settled" && (
-                  <div style={{ fontSize: 14, fontWeight: 600, marginTop: 6, padding: "10px 14px", borderRadius: 8, background: c.winner === username ? "#E1F5EE" : c.winner === "draw" ? "#F1EFE8" : "#FCEBEB", color: c.winner === username ? "#0F6E56" : c.winner === "draw" ? "#888780" : "#993C1D" }}>
-                    {c.winner === username ? `🏆 You won ${c.wager * 2} pts! (+${c.wager} profit)` : c.winner === "draw" ? `🤝 Draw — ${c.wager} pts refunded` : `😢 ${c.winner} won · You lost ${c.wager} pts`}
+
+                {/* ── FIX: Correct result labels for challenges ── */}
+                {challengeResult === "won" && (
+                  <div style={{ fontSize: 14, fontWeight: 600, marginTop: 6, padding: "10px 14px", borderRadius: 8, background: "#E1F5EE", color: "#0F6E56" }}>
+                    🏆 You won {c.wager * 2} pts! (+{c.wager} profit)
+                  </div>
+                )}
+                {challengeResult === "draw" && (
+                  <div style={{ fontSize: 14, fontWeight: 600, marginTop: 6, padding: "10px 14px", borderRadius: 8, background: "#F1EFE8", color: "#888780" }}>
+                    🤝 Draw — {c.wager} pts refunded
+                  </div>
+                )}
+                {challengeResult === "lost" && (
+                  <div style={{ fontSize: 14, fontWeight: 600, marginTop: 6, padding: "10px 14px", borderRadius: 8, background: "#FCEBEB", color: "#993C1D" }}>
+                    😢 {c.winner} won · You lost {c.wager} pts
                   </div>
                 )}
               </div>
@@ -1050,15 +1080,18 @@ export default function Multiplayer({ username, points, setPoints }) {
             const pct       = Math.round((c.participants.length / c.maxPlayers) * 100);
             const isCreator = c.createdBy === username;
             const isF11     = isF11Contest(c) || c.mode === "fantasy11";
-
-            // ✅ FIX: Use actual IST match time to determine if match has started
             const matchStarted = isMatchStarted(c);
-
-            // ✅ FIX: Show "Live" badge when match is ongoing but not yet settled
             const displayStatus =
               (c.status === "open" || c.status === "locked") && matchStarted
                 ? "live"
                 : c.status;
+
+            // ── FIX: correct contest result labels ────────────────────────────
+            const contestResult = c.status === "settled" ? getContestResult(c, username) : null;
+            const winnerCount   = contestResult === "won"
+              ? (c.winner || "").split(", ").filter(Boolean).length
+              : 1;
+            const myPrize = Math.floor(totalPot / Math.max(winnerCount, 1));
 
             return (
               <div key={c._id} style={S.card}>
@@ -1071,7 +1104,6 @@ export default function Multiplayer({ username, points, setPoints }) {
                     </div>
                     <div style={{ fontSize: 12, color: "#888780", marginTop: 2 }}>🏏 {c.matchLabel}</div>
                   </div>
-                  {/* ✅ FIX: Use displayStatus so badge shows "Live" during match */}
                   <div style={{ textAlign: "right" }}>{statusBadge(displayStatus)}</div>
                 </div>
 
@@ -1105,7 +1137,6 @@ export default function Multiplayer({ username, points, setPoints }) {
                   <div style={S.autoSettleNotice}>⏳ Auto-settling after match ends via Cricket API</div>
                 )}
 
-                {/* ✅ FIX: Cancel button blocked by real match time, not just "locked" status */}
                 {isCreator && (c.status === "open" || c.status === "locked") && (
                   <div style={{ marginTop: 8 }}>
                     {matchStarted ? (
@@ -1121,11 +1152,24 @@ export default function Multiplayer({ username, points, setPoints }) {
                   </div>
                 )}
 
-                {c.status === "settled" && (
-                  <div style={{ fontSize: 13, fontWeight: 600, marginTop: 8, padding: "10px 14px", borderRadius: 8, background: c.winner?.includes(username) ? "#E1F5EE" : "#FCEBEB", color: c.winner?.includes(username) ? "#0F6E56" : "#993C1D" }}>
-                    {c.winner?.includes(username)
-                      ? `🏆 You won! ${isF11 ? "Highest fantasy points" : `Team ${c.winningTeam} won`} · Prize: ${Math.floor(totalPot / (c.winner.split(", ").length))} pts`
-                      : `Result: ${isF11 ? "Settled by fantasy points" : `${c.winningTeam} won`} · Winner(s): ${c.winner}`}
+                {/* ── FIX: Correct result display for all contest outcomes ── */}
+                {contestResult === "refund" && (
+                  <div style={{ fontSize: 13, fontWeight: 600, marginTop: 8, padding: "10px 14px", borderRadius: 8, background: "#E6F1FB", color: "#185FA5" }}>
+                    🔄 Entry refunded — {c.winningTeam === "no_scores"
+                      ? "fantasy points were not available for this match"
+                      : c.participants.length === 1
+                        ? "no other players joined this contest"
+                        : "no winner could be determined"}
+                  </div>
+                )}
+                {contestResult === "won" && (
+                  <div style={{ fontSize: 13, fontWeight: 600, marginTop: 8, padding: "10px 14px", borderRadius: 8, background: "#E1F5EE", color: "#0F6E56" }}>
+                    🏆 You won! {isF11 ? `Highest fantasy points` : `Team ${c.winningTeam} won`} · Prize: {myPrize} pts
+                  </div>
+                )}
+                {contestResult === "lost" && (
+                  <div style={{ fontSize: 13, fontWeight: 600, marginTop: 8, padding: "10px 14px", borderRadius: 8, background: "#FCEBEB", color: "#993C1D" }}>
+                    😢 {isF11 ? "Better fantasy score" : `${c.winningTeam}`} won · Winner(s): {c.winner}
                   </div>
                 )}
               </div>
