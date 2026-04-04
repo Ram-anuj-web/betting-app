@@ -3,234 +3,311 @@ import React, { useState, useEffect } from "react";
 const API = "https://betting-backend-xq1q.onrender.com";
 
 const SQUADS = {
-  MI: [
-    { name: "Jasprit Bumrah",      role: "BOWL", team: "MI" },
-    { name: "Suryakumar Yadav",    role: "BAT",  team: "MI" },
-    { name: "Hardik Pandya",       role: "AR",   team: "MI" },
-    { name: "Trent Boult",         role: "BOWL", team: "MI" },
-    { name: "Tilak Varma",         role: "BAT",  team: "MI" },
-    { name: "Rohit Sharma",        role: "BAT",  team: "MI" },
-    { name: "Naman Dhir",          role: "AR",   team: "MI" },
-    { name: "Deepak Chahar",       role: "BOWL", team: "MI" },
-    { name: "Shardul Thakur",      role: "AR",   team: "MI" },
-    { name: "Ryan Rickelton",      role: "WK",   team: "MI" },
-    { name: "Ashwani Kumar",       role: "BOWL", team: "MI" },
-    { name: "Sherfane Rutherford", role: "BAT",  team: "MI" },
-    { name: "Quinton de Kock",     role: "WK",   team: "MI" },
-    { name: "Atharva Ankolekar",   role: "AR",   team: "MI" },
-    { name: "Raj Bawa",            role: "AR",   team: "MI" },
-    { name: "Mayank Rawat",        role: "BAT",  team: "MI" },
-    { name: "Corbin Bosch",        role: "AR",   team: "MI" },
-    { name: "Mayank Markande",     role: "BOWL", team: "MI" },
-    { name: "Ali Ghazanfar",       role: "BOWL", team: "MI" },
-  ],
-  KKR: [
-    { name: "Sunil Narine",          role: "AR",   team: "KKR" },
-    { name: "Varun Chakaravarthy",   role: "BOWL", team: "KKR" },
-    { name: "Matheesha Pathirana",   role: "BOWL", team: "KKR" },
-    { name: "Vaibhav Arora",         role: "BOWL", team: "KKR" },
-    { name: "Harshit Rana",          role: "BOWL", team: "KKR" },
-    { name: "Rachin Ravindra",       role: "BAT",  team: "KKR" },
-    { name: "Rinku Singh",           role: "BAT",  team: "KKR" },
-    { name: "Angkrish Raghuvanshi",  role: "BAT",  team: "KKR" },
-    { name: "Ajinkya Rahane",        role: "BAT",  team: "KKR" },
-    { name: "Manish Pandey",         role: "BAT",  team: "KKR" },
-    { name: "Cameron Green",         role: "AR",   team: "KKR" },
-    { name: "Blessing Muzarabani",   role: "BOWL", team: "KKR" },
-    { name: "Navdeep Saini",         role: "BOWL", team: "KKR" },
-    { name: "Daksh Kamra",           role: "BOWL", team: "KKR" },
-    { name: "Sarthak Ranjan",        role: "WK",   team: "KKR" },
-    { name: "Anukul Roy",            role: "AR",   team: "KKR" },
-    { name: "Umran Malik",           role: "BOWL", team: "KKR" },
-    { name: "Akash Deep",            role: "BOWL", team: "KKR" },
-    { name: "Ramandeep Singh",       role: "AR",   team: "KKR" },
-    { name: "Tim Seifert",           role: "WK",   team: "KKR" },
-    { name: "Finn Allen",            role: "WK",   team: "KKR" },
-    { name: "Kartik Tyagi",          role: "BOWL", team: "KKR" },
-  ],
   CSK: [
-    { name: "Shivam Dube",       role: "AR",   team: "CSK" },
-    { name: "Khaleel Ahmed",     role: "BOWL", team: "CSK" },
-    { name: "Sanju Samson",      role: "WK",   team: "CSK" },
-    { name: "Ayush Mhatre",      role: "BAT",  team: "CSK" },
-    { name: "Dewald Brevis",     role: "BAT",  team: "CSK" },
-    { name: "Noor Ahmad",        role: "BOWL", team: "CSK" },
-    { name: "Ruturaj Gaikwad",   role: "BAT",  team: "CSK" },
-    { name: "Anshul Kamboj",     role: "BOWL", team: "CSK" },
-    { name: "MS Dhoni",          role: "WK",   team: "CSK" },
-    { name: "Jamie Overton",     role: "AR",   team: "CSK" },
-    { name: "Zakary Foulkes",    role: "BOWL", team: "CSK" },
-    { name: "Aman Khan",         role: "BAT",  team: "CSK" },
-    { name: "Matthew Short",     role: "AR",   team: "CSK" },
-    { name: "Shreyas Gopal",     role: "BOWL", team: "CSK" },
-    { name: "Akeal Hosein",      role: "BOWL", team: "CSK" },
-    { name: "Kartik Sharma",     role: "AR",   team: "CSK" },
-    { name: "Mukesh Choudhary",  role: "BOWL", team: "CSK" },
-    { name: "Nathan Ellis",      role: "BOWL", team: "CSK" },
-    { name: "Matt Henry",        role: "BOWL", team: "CSK" },
-    { name: "Spencer Johnson",   role: "BOWL", team: "CSK" },
-    { name: "Rahul Chahar",      role: "BOWL", team: "CSK" },
-    { name: "Sarfaraz Khan",     role: "BAT",  team: "CSK" },
+    // Batters
+    { name: "Ruturaj Gaikwad",    role: "BAT", team: "CSK" },
+    { name: "Ayush Mhatre",       role: "BAT", team: "CSK" },
+    { name: "Kartik Sharma",      role: "BAT", team: "CSK" },
+    { name: "Sarfaraz Khan",      role: "BAT", team: "CSK" },
+    { name: "Aman Khan",          role: "BAT", team: "CSK" },
+    // Wicket-Keepers
+    { name: "MS Dhoni",           role: "WK",  team: "CSK" },
+    { name: "Sanju Samson",       role: "WK",  team: "CSK" },
+    { name: "Urvil Patel",        role: "WK",  team: "CSK" },
+    // All-Rounders
+    { name: "Dewald Brevis",      role: "AR",  team: "CSK" },
+    { name: "Shivam Dube",        role: "AR",  team: "CSK" },
+    { name: "Jamie Overton",      role: "AR",  team: "CSK" },
+    { name: "Matthew Short",      role: "AR",  team: "CSK" },
+    { name: "Ramakrishna Ghosh",  role: "AR",  team: "CSK" },
+    { name: "Prashant Veer",      role: "AR",  team: "CSK" },
+    { name: "Shreyas Gopal",      role: "AR",  team: "CSK" },
+    { name: "Zak Foulkes",        role: "AR",  team: "CSK" },
+    // Bowlers
+    { name: "Khaleel Ahmed",      role: "BOWL", team: "CSK" },
+    { name: "Noor Ahmad",         role: "BOWL", team: "CSK" },
+    { name: "Anshul Kamboj",      role: "BOWL", team: "CSK" },
+    { name: "Mukesh Choudhary",   role: "BOWL", team: "CSK" },
+    { name: "Gurjapneet Singh",   role: "BOWL", team: "CSK" },
+    { name: "Akeal Hosein",       role: "BOWL", team: "CSK" },
+    { name: "Matt Henry",         role: "BOWL", team: "CSK" },
+    { name: "Rahul Chahar",       role: "BOWL", team: "CSK" },
+    { name: "Spencer Johnson",    role: "BOWL", team: "CSK" },
   ],
-  DC: [
-    { name: "Mitchell Starc",       role: "BOWL", team: "DC" },
-    { name: "KL Rahul",             role: "WK",   team: "DC" },
-    { name: "Kuldeep Yadav",        role: "BOWL", team: "DC" },
-    { name: "Axar Patel",           role: "AR",   team: "DC" },
-    { name: "Vipraj Nigam",         role: "BAT",  team: "DC" },
-    { name: "Ashutosh Sharma",      role: "BAT",  team: "DC" },
-    { name: "David Miller",         role: "BAT",  team: "DC" },
-    { name: "Tristan Stubbs",       role: "BAT",  team: "DC" },
-    { name: "Sameer Rizvi",         role: "BAT",  team: "DC" },
-    { name: "Mukesh Kumar",         role: "BOWL", team: "DC" },
-    { name: "Dushmantha Chameera",  role: "BOWL", team: "DC" },
-    { name: "Kyle Jamieson",        role: "AR",   team: "DC" },
-    { name: "Karun Nair",           role: "BAT",  team: "DC" },
-    { name: "Lungi Ngidi",          role: "BOWL", team: "DC" },
-    { name: "Tripurana Vijay",      role: "BAT",  team: "DC" },
-    { name: "Madhav Tiwari",        role: "BAT",  team: "DC" },
-    { name: "Ajay Mandal",          role: "AR",   team: "DC" },
-    { name: "Auqib Nabi",           role: "BOWL", team: "DC" },
-    { name: "T Natarajan",          role: "BOWL", team: "DC" },
-    { name: "Prithvi Shaw",         role: "BAT",  team: "DC" },
-    { name: "Pathum Nissanka",      role: "BAT",  team: "DC" },
-  ],
-  GT: [
-    { name: "Jos Buttler",         role: "WK",   team: "GT" },
-    { name: "Sai Sudharsan",       role: "BAT",  team: "GT" },
-    { name: "Shubman Gill",        role: "BAT",  team: "GT" },
-    { name: "Sai Kishore",         role: "BOWL", team: "GT" },
-    { name: "Mohammed Siraj",      role: "BOWL", team: "GT" },
-    { name: "Rashid Khan",         role: "BOWL", team: "GT" },
-    { name: "Rahul Tewatia",       role: "AR",   team: "GT" },
-    { name: "Prasidh Krishna",     role: "BOWL", team: "GT" },
-    { name: "Shahrukh Khan",       role: "BAT",  team: "GT" },
-    { name: "Washington Sundar",   role: "AR",   team: "GT" },
-    { name: "Jason Holder",        role: "AR",   team: "GT" },
-    { name: "Glenn Phillips",      role: "WK",   team: "GT" },
-    { name: "Nishant Sindhu",      role: "AR",   team: "GT" },
-    { name: "Kagiso Rabada",       role: "BOWL", team: "GT" },
-    { name: "Kulwant Khejroliya",  role: "BOWL", team: "GT" },
-    { name: "Manav Suthar",        role: "BOWL", team: "GT" },
-    { name: "Anuj Rawat",          role: "WK",   team: "GT" },
-    { name: "Ashok Sharma",        role: "BOWL", team: "GT" },
-  ],
-  LSG: [
-    { name: "Nicholas Pooran",      role: "WK",   team: "LSG" },
-    { name: "Mitchell Marsh",       role: "AR",   team: "LSG" },
-    { name: "Aiden Markram",        role: "AR",   team: "LSG" },
-    { name: "Rishabh Pant",         role: "WK",   team: "LSG" },
-    { name: "Wanindu Hasaranga",    role: "AR",   team: "LSG" },
-    { name: "Ayush Badoni",         role: "BAT",  team: "LSG" },
-    { name: "Digvesh Singh",        role: "BOWL", team: "LSG" },
-    { name: "Josh Inglis",          role: "WK",   team: "LSG" },
-    { name: "Mohammad Shami",       role: "BOWL", team: "LSG" },
-    { name: "Arshin Kulkarni",      role: "AR",   team: "LSG" },
-    { name: "Abdul Samad",          role: "BAT",  team: "LSG" },
-    { name: "Avesh Khan",           role: "BOWL", team: "LSG" },
-    { name: "Manimaran Siddharth",  role: "BOWL", team: "LSG" },
-    { name: "Mohsin Khan",          role: "BOWL", team: "LSG" },
-    { name: "Mayank Yadav",         role: "BOWL", team: "LSG" },
-    { name: "Arjun Tendulkar",      role: "AR",   team: "LSG" },
-    { name: "Himmat Singh",         role: "BAT",  team: "LSG" },
-    { name: "Annrich Nortje",       role: "BOWL", team: "LSG" },
+  MI: [
+    // Batters
+    { name: "Rohit Sharma",         role: "BAT", team: "MI" },
+    { name: "Suryakumar Yadav",     role: "BAT", team: "MI" },
+    { name: "Tilak Varma",          role: "BAT", team: "MI" },
+    { name: "Sherfane Rutherford",  role: "BAT", team: "MI" },
+    { name: "Danish Malewar",       role: "BAT", team: "MI" },
+    // Wicket-Keepers
+    { name: "Ryan Rickelton",       role: "WK",  team: "MI" },
+    { name: "Quinton de Kock",      role: "WK",  team: "MI" },
+    { name: "Robin Minz",           role: "WK",  team: "MI" },
+    // All-Rounders
+    { name: "Hardik Pandya",        role: "AR",  team: "MI" },
+    { name: "Naman Dhir",           role: "AR",  team: "MI" },
+    { name: "Mitchell Santner",     role: "AR",  team: "MI" },
+    { name: "Raj Angad Bawa",       role: "AR",  team: "MI" },
+    { name: "Atharva Ankolekar",    role: "AR",  team: "MI" },
+    { name: "Mayank Rawat",         role: "AR",  team: "MI" },
+    { name: "Corbin Bosch",         role: "AR",  team: "MI" },
+    { name: "Will Jacks",           role: "AR",  team: "MI" },
+    { name: "Shardul Thakur",       role: "AR",  team: "MI" },
+    // Bowlers
+    { name: "Jasprit Bumrah",       role: "BOWL", team: "MI" },
+    { name: "Trent Boult",          role: "BOWL", team: "MI" },
+    { name: "Deepak Chahar",        role: "BOWL", team: "MI" },
+    { name: "Mayank Markande",      role: "BOWL", team: "MI" },
+    { name: "Ashwani Kumar",        role: "BOWL", team: "MI" },
+    { name: "Mohammad Izhar",       role: "BOWL", team: "MI" },
+    { name: "Raghu Sharma",         role: "BOWL", team: "MI" },
   ],
   RCB: [
-    { name: "Virat Kohli",        role: "BAT",  team: "RCB" },
-    { name: "Phil Salt",          role: "WK",   team: "RCB" },
-    { name: "Devdutt Padikkal",   role: "BAT",  team: "RCB" },
-    { name: "Rajat Patidar",      role: "BAT",  team: "RCB" },
-    { name: "Krunal Pandya",      role: "AR",   team: "RCB" },
-    { name: "Venkatesh Iyer",     role: "AR",   team: "RCB" },
-    { name: "Tim David",          role: "BAT",  team: "RCB" },
-    { name: "Jitesh Sharma",      role: "WK",   team: "RCB" },
+    // Batters
+    { name: "Virat Kohli",        role: "BAT", team: "RCB" },
+    { name: "Devdutt Padikkal",   role: "BAT", team: "RCB" },
+    { name: "Rajat Patidar",      role: "BAT", team: "RCB" },
+    // Wicket-Keepers
+    { name: "Phil Salt",          role: "WK",  team: "RCB" },
+    { name: "Jitesh Sharma",      role: "WK",  team: "RCB" },
+    { name: "Jordan Cox",         role: "WK",  team: "RCB" },
+    // All-Rounders
+    { name: "Krunal Pandya",      role: "AR",  team: "RCB" },
+    { name: "Tim David",          role: "AR",  team: "RCB" },
+    { name: "Romario Shepherd",   role: "AR",  team: "RCB" },
+    { name: "Jacob Bethell",      role: "AR",  team: "RCB" },
+    { name: "Venkatesh Iyer",     role: "AR",  team: "RCB" },
+    { name: "Satvik Deswal",      role: "AR",  team: "RCB" },
+    { name: "Mangesh Yadav",      role: "AR",  team: "RCB" },
+    { name: "Vicky Ostwal",       role: "AR",  team: "RCB" },
+    { name: "Vihaan Malhotra",    role: "AR",  team: "RCB" },
+    { name: "Kanishk Chouhan",    role: "AR",  team: "RCB" },
+    // Bowlers
     { name: "Josh Hazlewood",     role: "BOWL", team: "RCB" },
     { name: "Bhuvneshwar Kumar",  role: "BOWL", team: "RCB" },
-    { name: "Romario Shepherd",   role: "AR",   team: "RCB" },
-    { name: "Suyash Sharma",      role: "BOWL", team: "RCB" },
     { name: "Yash Dayal",         role: "BOWL", team: "RCB" },
     { name: "Nuwan Thushara",     role: "BOWL", team: "RCB" },
-    { name: "Rasikh Salam",       role: "BOWL", team: "RCB" },
-    { name: "Mangesh Yadav",      role: "BOWL", team: "RCB" },
-    { name: "Kanishk Chouhan",    role: "BAT",  team: "RCB" },
-    { name: "Vihaan Malhotra",    role: "BAT",  team: "RCB" },
-    { name: "Swapnil Singh",      role: "AR",   team: "RCB" },
-    { name: "Abhinandan Singh",   role: "BAT",  team: "RCB" },
+    { name: "Suyash Sharma",      role: "BOWL", team: "RCB" },
+    { name: "Rasikh Dar",         role: "BOWL", team: "RCB" },
     { name: "Jacob Duffy",        role: "BOWL", team: "RCB" },
-    { name: "Jordan Cox",         role: "WK",   team: "RCB" },
-    { name: "Vicky Ostwal",       role: "BOWL", team: "RCB" },
+    { name: "Abhinandan Singh",   role: "BOWL", team: "RCB" },
+  ],
+  KKR: [
+    // Batters
+    { name: "Ajinkya Rahane",       role: "BAT", team: "KKR" },
+    { name: "Angkrish Raghuvanshi", role: "BAT", team: "KKR" },
+    { name: "Manish Pandey",        role: "BAT", team: "KKR" },
+    { name: "Rinku Singh",          role: "BAT", team: "KKR" },
+    { name: "Rovman Powell",        role: "BAT", team: "KKR" },
+    { name: "Rahul Tripathi",       role: "BAT", team: "KKR" },
+    { name: "Cameron Green",        role: "BAT", team: "KKR" },
+    // Wicket-Keepers
+    { name: "Finn Allen",           role: "WK",  team: "KKR" },
+    { name: "Tim Seifert",          role: "WK",  team: "KKR" },
+    { name: "Tejasvi Singh",        role: "WK",  team: "KKR" },
+    { name: "Sarthak Ranjan",       role: "WK",  team: "KKR" },
+    // All-Rounders
+    { name: "Rachin Ravindra",      role: "AR",  team: "KKR" },
+    { name: "Ramandeep Singh",      role: "AR",  team: "KKR" },
+    { name: "Anukul Roy",           role: "AR",  team: "KKR" },
+    { name: "Daksh Kamra",          role: "AR",  team: "KKR" },
+    // Bowlers
+    { name: "Varun Chakaravarthy",  role: "BOWL", team: "KKR" },
+    { name: "Sunil Narine",         role: "BOWL", team: "KKR" },
+    { name: "Matheesha Pathirana",  role: "BOWL", team: "KKR" },
+    { name: "Vaibhav Arora",        role: "BOWL", team: "KKR" },
+    { name: "Harshit Rana",         role: "BOWL", team: "KKR" },
+    { name: "Kartik Tyagi",         role: "BOWL", team: "KKR" },
+    { name: "Akash Deep",           role: "BOWL", team: "KKR" },
+    { name: "Umran Malik",          role: "BOWL", team: "KKR" },
+    { name: "Prashant Solanki",     role: "BOWL", team: "KKR" },
   ],
   SRH: [
-    { name: "Ishan Kishan",        role: "WK",   team: "SRH" },
-    { name: "Abhishek Sharma",     role: "AR",   team: "SRH" },
-    { name: "Heinrich Klaasen",    role: "WK",   team: "SRH" },
-    { name: "Travis Head",         role: "BAT",  team: "SRH" },
-    { name: "Pat Cummins",         role: "AR",   team: "SRH" },
-    { name: "Aniket Verma",        role: "BAT",  team: "SRH" },
-    { name: "Nitish Kumar Reddy",  role: "AR",   team: "SRH" },
-    { name: "Liam Livingstone",    role: "AR",   team: "SRH" },
-    { name: "Kamindu Mendis",      role: "AR",   team: "SRH" },
-    { name: "Eshan Malinga",       role: "BOWL", team: "SRH" },
-    { name: "Jack Edwards",        role: "AR",   team: "SRH" },
-    { name: "Shivang Kumar",       role: "BOWL", team: "SRH" },
-    { name: "David Payne",         role: "BOWL", team: "SRH" },
-    { name: "Salil Arora",         role: "BOWL", team: "SRH" },
-    { name: "Onkar Tarmale",       role: "BAT",  team: "SRH" },
-    { name: "Praful Hinge",        role: "BOWL", team: "SRH" },
-    { name: "Amit Kumar",          role: "BOWL", team: "SRH" },
-    { name: "Brydon Carse",        role: "AR",   team: "SRH" },
-    { name: "Ravichandran Smaran", role: "BAT",  team: "SRH" },
-    { name: "Sakib Hussain",       role: "BOWL", team: "SRH" },
+    // Batters
+    { name: "Travis Head",             role: "BAT", team: "SRH" },
+    { name: "Aniket Verma",            role: "BAT", team: "SRH" },
+    { name: "Smaran Ravichandran",     role: "BAT", team: "SRH" },
+    // Wicket-Keepers
+    { name: "Ishan Kishan",            role: "WK",  team: "SRH" },
+    { name: "Heinrich Klaasen",        role: "WK",  team: "SRH" },
+    { name: "Salil Arora",             role: "WK",  team: "SRH" },
+    // All-Rounders
+    { name: "Pat Cummins",             role: "AR",  team: "SRH" },
+    { name: "Abhishek Sharma",         role: "AR",  team: "SRH" },
+    { name: "Nitish Kumar Reddy",      role: "AR",  team: "SRH" },
+    { name: "Liam Livingstone",        role: "AR",  team: "SRH" },
+    { name: "Kamindu Mendis",          role: "AR",  team: "SRH" },
+    { name: "Harshal Patel",           role: "AR",  team: "SRH" },
+    { name: "Harsh Dubey",             role: "AR",  team: "SRH" },
+    { name: "Brydon Carse",            role: "AR",  team: "SRH" },
+    { name: "Shivang Kumar",           role: "AR",  team: "SRH" },
+    { name: "Jack Edwards",            role: "AR",  team: "SRH" },
+    // Bowlers
+    { name: "Eshan Malinga",           role: "BOWL", team: "SRH" },
+    { name: "Zeeshan Ansari",          role: "BOWL", team: "SRH" },
+    { name: "Jaydev Unadkat",          role: "BOWL", team: "SRH" },
+    { name: "Sakib Hussain",           role: "BOWL", team: "SRH" },
+    { name: "Onkar Tarmale",           role: "BOWL", team: "SRH" },
+    { name: "Amit Kumar",              role: "BOWL", team: "SRH" },
+    { name: "Praful Hinge",            role: "BOWL", team: "SRH" },
+    { name: "Shivam Mavi",             role: "BOWL", team: "SRH" },
+  ],
+  DC: [
+    // Batters
+    { name: "KL Rahul",          role: "WK",  team: "DC" },  // wk-batter
+    { name: "Karun Nair",        role: "BAT", team: "DC" },
+    { name: "David Miller",      role: "BAT", team: "DC" },
+    { name: "Pathum Nissanka",   role: "BAT", team: "DC" },
+    { name: "Sahil Parakh",      role: "BAT", team: "DC" },
+    { name: "Prithvi Shaw",      role: "BAT", team: "DC" },
+    // Wicket-Keepers
+    { name: "Ben Duckett",       role: "WK",  team: "DC" },
+    { name: "Abishek Porel",     role: "WK",  team: "DC" },
+    { name: "Tristan Stubbs",    role: "WK",  team: "DC" },
+    // All-Rounders
+    { name: "Axar Patel",        role: "AR",  team: "DC" },
+    { name: "Sameer Rizvi",      role: "AR",  team: "DC" },
+    { name: "Ashutosh Sharma",   role: "AR",  team: "DC" },
+    { name: "Vipraj Nigam",      role: "AR",  team: "DC" },
+    { name: "Ajay Mandal",       role: "AR",  team: "DC" },
+    { name: "Tripurana Vijay",   role: "AR",  team: "DC" },
+    { name: "Madhav Tiwari",     role: "AR",  team: "DC" },
+    { name: "Nitish Rana",       role: "AR",  team: "DC" },
+    { name: "Auqib Dar",         role: "AR",  team: "DC" },
+    // Bowlers
+    { name: "Mitchell Starc",     role: "BOWL", team: "DC" },
+    { name: "Kuldeep Yadav",      role: "BOWL", team: "DC" },
+    { name: "T Natarajan",        role: "BOWL", team: "DC" },
+    { name: "Mukesh Kumar",       role: "BOWL", team: "DC" },
+    { name: "Dushmantha Chameera",role: "BOWL", team: "DC" },
+    { name: "Lungi Ngidi",        role: "BOWL", team: "DC" },
+    { name: "Kyle Jamieson",      role: "BOWL", team: "DC" },
+  ],
+  LSG: [
+    // Batters
+    { name: "Aiden Markram",        role: "BAT", team: "LSG" },
+    { name: "Himmat Singh",         role: "BAT", team: "LSG" },
+    { name: "Matthew Breetzke",     role: "BAT", team: "LSG" },
+    { name: "Akshat Raghuwanshi",   role: "BAT", team: "LSG" },
+    // Wicket-Keepers
+    { name: "Rishabh Pant",         role: "WK",  team: "LSG" },
+    { name: "Nicholas Pooran",      role: "WK",  team: "LSG" },
+    { name: "Josh Inglis",          role: "WK",  team: "LSG" },
+    { name: "Mukul Choudhary",      role: "WK",  team: "LSG" },
+    // All-Rounders
+    { name: "Mitchell Marsh",       role: "AR",  team: "LSG" },
+    { name: "Abdul Samad",          role: "AR",  team: "LSG" },
+    { name: "Shahbaz Ahmed",        role: "AR",  team: "LSG" },
+    { name: "Arshin Kulkarni",      role: "AR",  team: "LSG" },
+    { name: "Wanindu Hasaranga",    role: "AR",  team: "LSG" },
+    { name: "Ayush Badoni",         role: "AR",  team: "LSG" },
+    // Bowlers
+    { name: "Mohammad Shami",       role: "BOWL", team: "LSG" },
+    { name: "Avesh Khan",           role: "BOWL", team: "LSG" },
+    { name: "Manimaran Siddharth",  role: "BOWL", team: "LSG" },
+    { name: "Digvesh Singh",        role: "BOWL", team: "LSG" },
+    { name: "Akash Singh",          role: "BOWL", team: "LSG" },
+    { name: "Prince Yadav",         role: "BOWL", team: "LSG" },
+    { name: "Arjun Tendulkar",      role: "BOWL", team: "LSG" },
+    { name: "Anrich Nortje",        role: "BOWL", team: "LSG" },
+    { name: "Naman Tiwari",         role: "BOWL", team: "LSG" },
+    { name: "Mayank Yadav",         role: "BOWL", team: "LSG" },
+    { name: "Mohsin Khan",          role: "BOWL", team: "LSG" },
   ],
   RR: [
-    { name: "Ravindra Jadeja",      role: "AR",   team: "RR" },
-    { name: "Yashasvi Jaiswal",     role: "BAT",  team: "RR" },
-    { name: "Jofra Archer",         role: "BOWL", team: "RR" },
-    { name: "Shimron Hetmyer",      role: "BAT",  team: "RR" },
-    { name: "Dhruv Jurel",          role: "WK",   team: "RR" },
-    { name: "Riyan Parag",          role: "BAT",  team: "RR" },
-    { name: "Vaibhav Sooryavanshi", role: "BAT",  team: "RR" },
-    { name: "Tushar Deshpande",     role: "BOWL", team: "RR" },
-    { name: "Sam Curran",           role: "AR",   team: "RR" },
-    { name: "Ravi Bishnoi",         role: "BOWL", team: "RR" },
-    { name: "Sandeep Sharma",       role: "BOWL", team: "RR" },
-    { name: "Yudhvir Singh",        role: "BOWL", team: "RR" },
-    { name: "Donovan Ferreira",     role: "BAT",  team: "RR" },
-    { name: "Kuldeep Sen",          role: "BOWL", team: "RR" },
-    { name: "Shubham Dubey",        role: "AR",   team: "RR" },
-    { name: "Yash Punja",           role: "BAT",  team: "RR" },
-    { name: "Sushant Mishra",       role: "BOWL", team: "RR" },
-    { name: "Brijesh Sharma",       role: "BOWL", team: "RR" },
-    { name: "Lhuan-dre Pretorius",  role: "AR",   team: "RR" },
-    { name: "Ravi Singh",           role: "BOWL", team: "RR" },
-    { name: "Aman Perala",          role: "BAT",  team: "RR" },
-    { name: "Nandre Burger",        role: "BOWL", team: "RR" },
-    { name: "Adam Milne",           role: "BOWL", team: "RR" },
-    { name: "Kwena Maphaka",        role: "BOWL", team: "RR" },
+    // Batters
+    { name: "Yashasvi Jaiswal",      role: "BAT", team: "RR" },
+    { name: "Riyan Parag",           role: "BAT", team: "RR" },
+    { name: "Shimron Hetmyer",       role: "BAT", team: "RR" },
+    { name: "Vaibhav Suryavanshi",   role: "BAT", team: "RR" },
+    { name: "Shubham Dubey",         role: "BAT", team: "RR" },
+    { name: "Ravi Singh",            role: "BAT", team: "RR" },
+    { name: "Aman Rao Perala",       role: "BAT", team: "RR" },
+    // Wicket-Keepers
+    { name: "Dhruv Jurel",           role: "WK",  team: "RR" },
+    { name: "Donovan Ferreira",      role: "WK",  team: "RR" },
+    { name: "Lhuan-dre Pretorius",   role: "WK",  team: "RR" },
+    // All-Rounders
+    { name: "Ravindra Jadeja",       role: "AR",  team: "RR" },
+    { name: "Sam Curran",            role: "AR",  team: "RR" },
+    { name: "Yudhvir Singh",         role: "AR",  team: "RR" },
+    // Bowlers
+    { name: "Jofra Archer",          role: "BOWL", team: "RR" },
+    { name: "Tushar Deshpande",      role: "BOWL", team: "RR" },
+    { name: "Ravi Bishnoi",          role: "BOWL", team: "RR" },
+    { name: "Sandeep Sharma",        role: "BOWL", team: "RR" },
+    { name: "Kwena Maphaka",         role: "BOWL", team: "RR" },
+    { name: "Adam Milne",            role: "BOWL", team: "RR" },
+    { name: "Kuldeep Sen",           role: "BOWL", team: "RR" },
+    { name: "Sushant Mishra",        role: "BOWL", team: "RR" },
+    { name: "Nandre Burger",         role: "BOWL", team: "RR" },
+    { name: "Brijesh Sharma",        role: "BOWL", team: "RR" },
+    { name: "Vignesh Puthur",        role: "BOWL", team: "RR" },
+    { name: "Yash Raj Punia",        role: "BOWL", team: "RR" },
+  ],
+  GT: [
+    // Batters
+    { name: "Shubman Gill",    role: "BAT", team: "GT" },
+    { name: "Sai Sudharsan",   role: "BAT", team: "GT" },
+    { name: "Shahrukh Khan",   role: "BAT", team: "GT" },
+    { name: "Glenn Phillips",  role: "BAT", team: "GT" },
+    // Wicket-Keepers
+    { name: "Jos Buttler",      role: "WK",  team: "GT" },
+    { name: "Kumar Kushagra",   role: "WK",  team: "GT" },
+    { name: "Anuj Rawat",       role: "WK",  team: "GT" },
+    { name: "Tom Banton",       role: "WK",  team: "GT" },
+    // All-Rounders
+    { name: "Washington Sundar", role: "AR", team: "GT" },
+    { name: "Jason Holder",      role: "AR", team: "GT" },
+    { name: "Nishant Sindhu",    role: "AR", team: "GT" },
+    { name: "Sai Kishore",       role: "AR", team: "GT" },
+    { name: "Jayant Yadav",      role: "AR", team: "GT" },
+    { name: "Mohd Arshad Khan",  role: "AR", team: "GT" },
+    { name: "Rashid Khan",       role: "AR", team: "GT" },
+    { name: "Rahul Tewatia",     role: "AR", team: "GT" },
+    // Bowlers
+    { name: "Mohammed Siraj",    role: "BOWL", team: "GT" },
+    { name: "Kagiso Rabada",     role: "BOWL", team: "GT" },
+    { name: "Prasidh Krishna",   role: "BOWL", team: "GT" },
+    { name: "Manav Suthar",      role: "BOWL", team: "GT" },
+    { name: "Gurnoor Brar",      role: "BOWL", team: "GT" },
+    { name: "Ishant Sharma",     role: "BOWL", team: "GT" },
+    { name: "Ashok Sharma",      role: "BOWL", team: "GT" },
+    { name: "Luke Wood",         role: "BOWL", team: "GT" },
+    { name: "Prithvi Raj Yarra", role: "BOWL", team: "GT" },
   ],
   PBKS: [
-    { name: "Shreyas Iyer",        role: "BAT",  team: "PBKS" },
-    { name: "Arshdeep Singh",      role: "BOWL", team: "PBKS" },
-    { name: "Nehal Wadhera",       role: "BAT",  team: "PBKS" },
-    { name: "Yuzvendra Chahal",    role: "BOWL", team: "PBKS" },
-    { name: "Marco Jansen",        role: "AR",   team: "PBKS" },
-    { name: "Priyansh Arya",       role: "BAT",  team: "PBKS" },
-    { name: "Azmatullah Omarzai",  role: "AR",   team: "PBKS" },
-    { name: "Marcus Stoinis",      role: "AR",   team: "PBKS" },
-    { name: "Shashank Singh",      role: "BAT",  team: "PBKS" },
-    { name: "Prabhsimran Singh",   role: "WK",   team: "PBKS" },
-    { name: "Lockie Ferguson",     role: "BOWL", team: "PBKS" },
-    { name: "Ben Dwarshuis",       role: "BOWL", team: "PBKS" },
-    { name: "Suryansh Shedge",     role: "BAT",  team: "PBKS" },
-    { name: "Musheer Khan",        role: "BAT",  team: "PBKS" },
-    { name: "Cooper Connolly",     role: "AR",   team: "PBKS" },
-    { name: "Mitchell Owen",       role: "BAT",  team: "PBKS" },
-    { name: "Vishal Nishad",       role: "WK",   team: "PBKS" },
-    { name: "Vishnu Vinod",        role: "WK",   team: "PBKS" },
-    { name: "Praveen Dubey",       role: "BOWL", team: "PBKS" },
-    { name: "Harnoor Singh",       role: "BAT",  team: "PBKS" },
-    { name: "Yash Thakur",         role: "BOWL", team: "PBKS" },
-    { name: "Xavier Bartlett",     role: "BOWL", team: "PBKS" },
+    // Batters
+    { name: "Shreyas Iyer",       role: "BAT", team: "PBKS" },
+    { name: "Nehal Wadhera",      role: "BAT", team: "PBKS" },
+    { name: "Shashank Singh",     role: "BAT", team: "PBKS" },
+    { name: "Harnoor Pannu",      role: "BAT", team: "PBKS" },
+    { name: "Pyla Avinash",       role: "BAT", team: "PBKS" },
+    // Wicket-Keepers
+    { name: "Prabhsimran Singh",  role: "WK",  team: "PBKS" },
+    { name: "Vishnu Vinod",       role: "WK",  team: "PBKS" },
+    // All-Rounders
+    { name: "Marcus Stoinis",     role: "AR",  team: "PBKS" },
+    { name: "Marco Jansen",       role: "AR",  team: "PBKS" },
+    { name: "Azmatullah Omarzai", role: "AR",  team: "PBKS" },
+    { name: "Priyansh Arya",      role: "AR",  team: "PBKS" },
+    { name: "Musheer Khan",       role: "AR",  team: "PBKS" },
+    { name: "Suryansh Shedge",    role: "AR",  team: "PBKS" },
+    { name: "Mitch Owen",         role: "AR",  team: "PBKS" },
+    { name: "Cooper Connolly",    role: "AR",  team: "PBKS" },
+    { name: "Ben Dwarshuis",      role: "AR",  team: "PBKS" },
+    { name: "Harpreet Brar",      role: "AR",  team: "PBKS" },
+    // Bowlers
+    { name: "Arshdeep Singh",     role: "BOWL", team: "PBKS" },
+    { name: "Yuzvendra Chahal",   role: "BOWL", team: "PBKS" },
+    { name: "Lockie Ferguson",    role: "BOWL", team: "PBKS" },
+    { name: "Yash Thakur",        role: "BOWL", team: "PBKS" },
+    { name: "Xavier Bartlett",    role: "BOWL", team: "PBKS" },
+    { name: "Pravin Dubey",       role: "BOWL", team: "PBKS" },
+    { name: "Vishal Nishad",      role: "BOWL", team: "PBKS" },
+    { name: "Vyshak Vijaykumar",  role: "BOWL", team: "PBKS" },
   ],
 };
 
@@ -257,7 +334,6 @@ const ROLE_COLORS = {
 const ROLE_FULL = { WK: "Wicket-Keeper", BAT: "Batter", AR: "All-Rounder", BOWL: "Bowler" };
 const MAX_PLAYERS = 11;
 const MAX_PER_TEAM = 7;
-// Role limits: [min, max]
 const ROLE_LIMITS = { WK: [1, 4], BAT: [1, 4], AR: [1, 4], BOWL: [3, 6] };
 
 export default function Fantasy11({ username, matchInfo, matchStatus }) {
@@ -357,7 +433,6 @@ export default function Fantasy11({ username, matchInfo, matchStatus }) {
 
   const isLocked = matchStatus === "live" || matchStatus === "completed";
 
-  // ── no match ─────────────────────────────────────────────────────────────
   if (!matchInfo) return (
     <div style={{ textAlign: "center", padding: 60 }}>
       <div style={{ fontSize: 48, marginBottom: 16 }}>🏏</div>
@@ -372,7 +447,6 @@ export default function Fantasy11({ username, matchInfo, matchStatus }) {
     <div style={{ textAlign: "center", padding: 60, color: "#7d8590" }}>Loading your team...</div>
   );
 
-  // ── DONE ──────────────────────────────────────────────────────────────────
   if (step === "done" && existingTeam) return (
     <div style={{ maxWidth: 860, margin: "0 auto", paddingBottom: 60 }}>
       <div style={c.hdr}>
@@ -400,7 +474,6 @@ export default function Fantasy11({ username, matchInfo, matchStatus }) {
     </div>
   );
 
-  // ── CAPTAIN ───────────────────────────────────────────────────────────────
   if (step === "captain") return (
     <div style={{ maxWidth: 860, margin: "0 auto", paddingBottom: 60 }}>
       <div style={c.hdr}>
@@ -449,7 +522,6 @@ export default function Fantasy11({ username, matchInfo, matchStatus }) {
     </div>
   );
 
-  // ── CONFIRM ───────────────────────────────────────────────────────────────
   if (step === "confirm") return (
     <div style={{ maxWidth: 860, margin: "0 auto", paddingBottom: 60 }}>
       <div style={c.hdr}>
@@ -470,7 +542,6 @@ export default function Fantasy11({ username, matchInfo, matchStatus }) {
     </div>
   );
 
-  // ── PICK (main) ───────────────────────────────────────────────────────────
   return (
     <div style={{ maxWidth: 860, margin: "0 auto", paddingBottom: 80 }}>
       <div style={c.hdr}>
@@ -479,7 +550,6 @@ export default function Fantasy11({ username, matchInfo, matchStatus }) {
           <div style={c.sub}>{matchInfo?.matchLabel}</div>
         </div>
         <div style={{ textAlign: "right" }}>
-          {/* Player count — NO credits */}
           <div style={{ fontSize: 26, fontWeight: 700, color: selected.length === MAX_PLAYERS ? "#00C896" : "#ffd166" }}>
             {selected.length}
             <span style={{ fontSize: 14, color: "#7d8590" }}>/{MAX_PLAYERS}</span>
@@ -490,7 +560,6 @@ export default function Fantasy11({ username, matchInfo, matchStatus }) {
 
       {isLocked && <div style={c.lock}>🔒 Match started — team creation locked.</div>}
 
-      {/* Role counts bar */}
       <div style={{ background: "#161b22", borderRadius: 12, padding: "10px 18px", marginBottom: 14, border: "1px solid #30363d" }}>
         <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#7d8590", flexWrap: "wrap", gap: 8 }}>
           {["WK","BAT","AR","BOWL"].map(r => {
@@ -511,7 +580,6 @@ export default function Fantasy11({ username, matchInfo, matchStatus }) {
         </div>
       </div>
 
-      {/* Role filters */}
       <div style={{ display: "flex", gap: 7, marginBottom: 10, flexWrap: "wrap" }}>
         {["ALL","WK","BAT","AR","BOWL"].map(r => (
           <button key={r} style={c.chip(roleFilter === r, ROLE_COLORS[r]?.border || "#7d8590")}
@@ -521,7 +589,6 @@ export default function Fantasy11({ username, matchInfo, matchStatus }) {
         ))}
       </div>
 
-      {/* Team filters + sort */}
       <div style={{ display: "flex", gap: 7, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
         {["ALL", team1, team2].filter(Boolean).map(t => (
           <button key={t} style={c.chip(teamFilter === t, TEAM_COLORS[t]?.primary || "#7d8590")}
@@ -535,7 +602,6 @@ export default function Fantasy11({ username, matchInfo, matchStatus }) {
 
       {error && <div style={c.err}>{error}</div>}
 
-      {/* Player grid */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(245px,1fr))", gap: 8, marginBottom: 20 }}>
         {filtered.map(player => {
           const isSel = !!selected.find(p => p.name === player.name);
@@ -571,7 +637,6 @@ export default function Fantasy11({ username, matchInfo, matchStatus }) {
         })}
       </div>
 
-      {/* Sticky footer */}
       <div style={{ position: "sticky", bottom: 0, background: "#0d1117",
         borderTop: "1px solid #30363d", padding: "12px 4px",
         display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
@@ -591,7 +656,6 @@ export default function Fantasy11({ username, matchInfo, matchStatus }) {
   );
 }
 
-// ── shared style helpers ──────────────────────────────────────────────────────
 const c = {
   hdr: {
     background: "linear-gradient(135deg,#0d1117,#161b22,#1a2236)",
@@ -627,7 +691,6 @@ const c = {
   lock: { background: "#1a0000", border: "1px solid #a32d2d", borderRadius: 10, padding: "11px 16px", marginBottom: 12, color: "#ff6b6b", fontSize: 13 },
 };
 
-// ── Pitch View ────────────────────────────────────────────────────────────────
 function PitchView({ selected, captain, viceCaptain }) {
   const rows = [
     { label: "Bowlers",        players: selected.filter(p => p.role === "BOWL") },
