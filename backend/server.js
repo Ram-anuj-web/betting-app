@@ -365,8 +365,7 @@ function findOddsForMatch(oddsData, team1, team2) {
 app.get("/odds/:matchId", async (req, res) => {
   try {
     const matchId = req.params.matchId;
-    const iplId = parseInt(matchId.replace("ipl-", ""));
-    const iplMatch = IPL_MATCHES.find(m => m.id === iplId);
+    const iplMatch = IPL_MATCHES.find(m => m.id === matchId);
     if (!iplMatch) return res.status(404).json({ message: "Match not found" });
     const oddsData = await fetchIPLOdds();
     const odds = findOddsForMatch(oddsData, iplMatch.team1, iplMatch.team2);
@@ -383,7 +382,7 @@ app.get("/odds-bulk", async (req, res) => {
     const result = {};
     for (const match of upcomingMatches) {
       const odds = findOddsForMatch(oddsData, match.team1, match.team2);
-      result[`ipl-${match.id}`] = odds || { [match.team1]: 1.9, [match.team2]: 1.9 };
+      result[match.id] = odds || { [match.team1]: 1.9, [match.team2]: 1.9 };
     }
     res.json({ odds: result, source: oddsData.length > 0 ? "live" : "fallback" });
   } catch (err) { console.error("odds-bulk error:", err.message); res.status(500).json({ message: "Failed to fetch bulk odds" }); }
@@ -429,8 +428,7 @@ async function checkAndSettleBets() {
     const matchIds = [...new Set(pendingBets.map(b => b.matchId))];
     for (const matchId of matchIds) {
       if (matchId.startsWith("ipl-")) {
-        const iplId = parseInt(matchId.replace("ipl-", ""));
-        const iplMatch = IPL_MATCHES.find(m => m.id === iplId);
+        const iplMatch = IPL_MATCHES.find(m => m.id === matchId);
         if (!iplMatch) continue;
         const matchDate = new Date(`${iplMatch.date}T${iplMatch.time}:00+05:30`);
         const endTime = new Date(matchDate.getTime() + 4 * 60 * 60 * 1000);
@@ -528,8 +526,7 @@ app.post("/admin/settle-match", async (req, res) => {
     }
     let contestsSettled = 0;
     if (matchId.startsWith("ipl-")) {
-      const iplId = parseInt(matchId.replace("ipl-", ""));
-      const iplMatch = IPL_MATCHES.find(m => m.id === iplId);
+      const iplMatch = IPL_MATCHES.find(m => m.id === matchId);
       if (iplMatch) {
         const relatedContests = await Contest.find({ status: { $in: ["open", "locked"] }, team1: iplMatch.team1, team2: iplMatch.team2 });
         for (const contest of relatedContests) {
@@ -624,8 +621,7 @@ app.post("/admin/fix-bet", async (req, res) => {
 
     let contestsFixed = 0;
     if (matchId.startsWith("ipl-")) {
-      const iplId = parseInt(matchId.replace("ipl-", ""));
-      const iplMatch = IPL_MATCHES.find(m => m.id === iplId);
+      const iplMatch = IPL_MATCHES.find(m => m.id === matchId);
 
       if (iplMatch) {
         const correctWinningTeam = winner.toLowerCase().includes(iplMatch.team1.toLowerCase())
@@ -728,8 +724,7 @@ app.post("/admin/settle-all", async (req, res) => {
   try {
     const { matchId, winner } = req.body;
     if (!matchId || !winner) return res.status(400).json({ message: "matchId and winner are required" });
-    const iplId = parseInt(matchId.replace("ipl-", ""));
-    const iplMatch = IPL_MATCHES.find(m => m.id === iplId);
+    const iplMatch = IPL_MATCHES.find(m => m.id === matchId);
 
     // 1. Settle Bets
     const pendingBets = await Bet.find({ matchId, status: "pending" });
@@ -770,7 +765,8 @@ app.post("/admin/settle-all", async (req, res) => {
       challenge.winner = challengeWinner; challenge.status = "settled"; await challenge.save(); challengesSettled++;
     }
 
-    res.json({ message: `✅ All settled for ${matchId}! Bets: ${betsSettled}, Contests: ${contestsSettled}, Challenges: ${challengesSettled}`, winner, betsSettled, contestsSettled, challengesSettled });
+    // Change 2 — Fix 4: Add nextStep reminder to response
+    res.json({ message: `✅ All settled for ${matchId}! Bets: ${betsSettled}, Contests: ${contestsSettled}, Challenges: ${challengesSettled}`, winner, betsSettled, contestsSettled, challengesSettled, nextStep: `⚠️ Run fantasy11-settle/auto/${matchId} next with Cricbuzz ID!` });
   } catch (err) { console.error("admin/settle-all error:", err.message); res.status(500).json({ message: err.message }); }
 });
 
@@ -863,7 +859,14 @@ app.post("/contest/create", async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found" });
     if (user.points < entryFee) return res.status(400).json({ message: "Not enough points for entry fee" });
     user.points -= entryFee; await user.save();
-    const contest = new Contest({ name, createdBy, sport, matchId: matchId || "manual", matchLabel, team1: team1 || null, team2: team2 || null, entryFee, maxPlayers: max, participants: [{ username: createdBy, team: myTeam }], status: "open", visibility: visibility || "public", password: visibility === "private" ? password : null });
+    const contest = new Contest({
+      name, createdBy, sport,
+      // Change 1 — Fix 2: normalize matchId format
+      matchId: matchId
+        ? (matchId.startsWith("ipl-") ? matchId : `ipl-${matchId.replace(/^ipl/, "")}`)
+        : "manual",
+      matchLabel, team1: team1 || null, team2: team2 || null, entryFee, maxPlayers: max, participants: [{ username: createdBy, team: myTeam }], status: "open", visibility: visibility || "public", password: visibility === "private" ? password : null
+    });
     await contest.save();
     res.json({ message: "Contest created!", contest, creatorPoints: user.points });
   } catch (err) { console.error(err); res.status(500).json({ message: "Server error" }); }
@@ -906,9 +909,10 @@ app.post("/contest/join", async (req, res) => {
         _id: contest._id,
         status: "open",
         $expr: { $lt: [{ $size: "$participants" }, "$maxPlayers"] },
+        // Change 3 — Fix 5: exact string match (no regex) to prevent duplicate joins
         participants: {
           $not: {
-            $elemMatch: { username: { $regex: `^${username}$`, $options: "i" } },
+            $elemMatch: { username: username },
           },
         },
       },

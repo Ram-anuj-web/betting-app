@@ -1,10 +1,94 @@
 // ============================================================
-//  fantasy11Routes.js  —  bulletproof version v5
+//  fantasy11Routes.js  —  bulletproof version v6
+//  FIX 3: Backend lock enforced using IST match start time
 //  Usage:  app.use('/fantasy11', require('./fantasy11Routes'))
 // ============================================================
 const express = require("express");
 const router  = express.Router();
 const { Fantasy11Team } = require("./models");
+
+// ── IPL match schedule (used to enforce lock at match start) ─────────────────
+const IPL_MATCHES = [
+  { id: 1,  team1: "RCB",  team2: "SRH",  date: "2026-03-28", time: "19:30" },
+  { id: 2,  team1: "MI",   team2: "KKR",  date: "2026-03-29", time: "19:30" },
+  { id: 3,  team1: "RR",   team2: "CSK",  date: "2026-03-30", time: "19:30" },
+  { id: 4,  team1: "PBKS", team2: "GT",   date: "2026-03-31", time: "19:30" },
+  { id: 5,  team1: "LSG",  team2: "DC",   date: "2026-04-01", time: "19:30" },
+  { id: 6,  team1: "KKR",  team2: "SRH",  date: "2026-04-02", time: "19:30" },
+  { id: 7,  team1: "CSK",  team2: "PBKS", date: "2026-04-03", time: "19:30" },
+  { id: 8,  team1: "DC",   team2: "MI",   date: "2026-04-04", time: "15:30" },
+  { id: 9,  team1: "GT",   team2: "RR",   date: "2026-04-04", time: "19:30" },
+  { id: 10, team1: "SRH",  team2: "LSG",  date: "2026-04-05", time: "15:30" },
+  { id: 11, team1: "RCB",  team2: "CSK",  date: "2026-04-05", time: "19:30" },
+  { id: 12, team1: "KKR",  team2: "PBKS", date: "2026-04-06", time: "19:30" },
+  { id: 13, team1: "RR",   team2: "MI",   date: "2026-04-07", time: "19:30" },
+  { id: 14, team1: "DC",   team2: "GT",   date: "2026-04-08", time: "19:30" },
+  { id: 15, team1: "KKR",  team2: "LSG",  date: "2026-04-09", time: "19:30" },
+  { id: 16, team1: "RR",   team2: "RCB",  date: "2026-04-10", time: "19:30" },
+  { id: 17, team1: "PBKS", team2: "SRH",  date: "2026-04-11", time: "15:30" },
+  { id: 18, team1: "CSK",  team2: "DC",   date: "2026-04-11", time: "19:30" },
+  { id: 19, team1: "LSG",  team2: "GT",   date: "2026-04-12", time: "15:30" },
+  { id: 20, team1: "MI",   team2: "RCB",  date: "2026-04-12", time: "19:30" },
+  { id: 21, team1: "SRH",  team2: "RR",   date: "2026-04-13", time: "19:30" },
+  { id: 22, team1: "CSK",  team2: "KKR",  date: "2026-04-14", time: "19:30" },
+  { id: 23, team1: "RCB",  team2: "LSG",  date: "2026-04-15", time: "19:30" },
+  { id: 24, team1: "MI",   team2: "PBKS", date: "2026-04-16", time: "19:30" },
+  { id: 25, team1: "GT",   team2: "KKR",  date: "2026-04-17", time: "19:30" },
+  { id: 26, team1: "RCB",  team2: "DC",   date: "2026-04-18", time: "15:30" },
+  { id: 27, team1: "SRH",  team2: "CSK",  date: "2026-04-18", time: "19:30" },
+  { id: 28, team1: "KKR",  team2: "RR",   date: "2026-04-19", time: "15:30" },
+  { id: 29, team1: "PBKS", team2: "LSG",  date: "2026-04-19", time: "19:30" },
+  { id: 30, team1: "GT",   team2: "MI",   date: "2026-04-20", time: "19:30" },
+  { id: 31, team1: "SRH",  team2: "DC",   date: "2026-04-21", time: "19:30" },
+  { id: 32, team1: "LSG",  team2: "RR",   date: "2026-04-22", time: "19:30" },
+  { id: 33, team1: "MI",   team2: "CSK",  date: "2026-04-23", time: "19:30" },
+  { id: 34, team1: "RCB",  team2: "GT",   date: "2026-04-24", time: "19:30" },
+  { id: 35, team1: "DC",   team2: "PBKS", date: "2026-04-25", time: "15:30" },
+  { id: 36, team1: "RR",   team2: "SRH",  date: "2026-04-25", time: "19:30" },
+  { id: 37, team1: "GT",   team2: "CSK",  date: "2026-04-26", time: "15:30" },
+  { id: 38, team1: "LSG",  team2: "KKR",  date: "2026-04-26", time: "19:30" },
+  { id: 39, team1: "DC",   team2: "RCB",  date: "2026-04-27", time: "19:30" },
+  { id: 40, team1: "PBKS", team2: "RR",   date: "2026-04-28", time: "19:30" },
+  { id: 41, team1: "MI",   team2: "SRH",  date: "2026-04-29", time: "19:30" },
+  { id: 42, team1: "GT",   team2: "RCB",  date: "2026-04-30", time: "19:30" },
+  { id: 43, team1: "RR",   team2: "DC",   date: "2026-05-01", time: "19:30" },
+  { id: 44, team1: "CSK",  team2: "MI",   date: "2026-05-02", time: "19:30" },
+  { id: 45, team1: "SRH",  team2: "KKR",  date: "2026-05-03", time: "15:30" },
+  { id: 46, team1: "GT",   team2: "PBKS", date: "2026-05-03", time: "19:30" },
+  { id: 47, team1: "MI",   team2: "LSG",  date: "2026-05-04", time: "19:30" },
+  { id: 48, team1: "DC",   team2: "CSK",  date: "2026-05-05", time: "19:30" },
+  { id: 49, team1: "SRH",  team2: "PBKS", date: "2026-05-06", time: "19:30" },
+  { id: 50, team1: "LSG",  team2: "RCB",  date: "2026-05-07", time: "19:30" },
+  { id: 51, team1: "DC",   team2: "KKR",  date: "2026-05-08", time: "19:30" },
+  { id: 52, team1: "RR",   team2: "GT",   date: "2026-05-09", time: "19:30" },
+  { id: 53, team1: "CSK",  team2: "LSG",  date: "2026-05-10", time: "15:30" },
+  { id: 54, team1: "RCB",  team2: "MI",   date: "2026-05-10", time: "19:30" },
+  { id: 55, team1: "PBKS", team2: "DC",   date: "2026-05-11", time: "19:30" },
+  { id: 56, team1: "GT",   team2: "SRH",  date: "2026-05-12", time: "19:30" },
+  { id: 57, team1: "RCB",  team2: "KKR",  date: "2026-05-13", time: "19:30" },
+  { id: 58, team1: "PBKS", team2: "MI",   date: "2026-05-14", time: "19:30" },
+  { id: 59, team1: "LSG",  team2: "CSK",  date: "2026-05-15", time: "19:30" },
+  { id: 60, team1: "KKR",  team2: "GT",   date: "2026-05-16", time: "19:30" },
+  { id: 61, team1: "PBKS", team2: "RCB",  date: "2026-05-17", time: "15:30" },
+  { id: 62, team1: "DC",   team2: "RR",   date: "2026-05-17", time: "19:30" },
+  { id: 63, team1: "CSK",  team2: "SRH",  date: "2026-05-18", time: "19:30" },
+  { id: 64, team1: "RR",   team2: "LSG",  date: "2026-05-19", time: "19:30" },
+  { id: 65, team1: "KKR",  team2: "MI",   date: "2026-05-20", time: "19:30" },
+  { id: 66, team1: "CSK",  team2: "GT",   date: "2026-05-21", time: "19:30" },
+  { id: 67, team1: "SRH",  team2: "RCB",  date: "2026-05-22", time: "19:30" },
+  { id: 68, team1: "LSG",  team2: "PBKS", date: "2026-05-23", time: "19:30" },
+  { id: 69, team1: "MI",   team2: "RR",   date: "2026-05-24", time: "15:30" },
+  { id: 70, team1: "KKR",  team2: "DC",   date: "2026-05-24", time: "19:30" },
+];
+
+// ── Check if a match has started based on IST time ───────────────────────────
+function hasMatchStarted(matchId) {
+  const rawId = parseInt(matchId.replace(/^ipl-?/, ""));
+  const match = IPL_MATCHES.find(m => m.id === rawId);
+  if (!match) return false;
+  const matchStart = new Date(`${match.date}T${match.time}:00+05:30`);
+  return new Date() >= matchStart;
+}
 
 // ── helper: expand any matchId format to all variants ────────────────────────
 function expandMatchIds(matchId) {
@@ -35,6 +119,11 @@ router.post("/team", async (req, res) => {
       return res.status(400).json({ message: `Captain "${captain}" is not in your squad.` });
     if (!players.includes(viceCaptain))
       return res.status(400).json({ message: `Vice-captain "${viceCaptain}" is not in your squad.` });
+
+    // ── FIX 3: Block saves if match has already started (backend enforcement) ──
+    if (hasMatchStarted(matchId)) {
+      return res.status(403).json({ message: "Team is locked — match has already started." });
+    }
 
     const matchIds = expandMatchIds(matchId);
     const existing = await Fantasy11Team.findOne({ username, matchId: { $in: matchIds } }).lean();
