@@ -57,6 +57,28 @@ function OddsChip({ team, odds, role }) {
   );
 }
 
+// 🔧 FIX: Normalize a raw key from the API into multiple candidate forms
+// so we can match regardless of what format the backend uses
+function buildCandidateKeys(matchId) {
+  const id = String(matchId).replace(/^ipl[-_]?/i, ""); // strip any existing prefix
+  return [
+    `ipl-${id}`,       // e.g. "ipl-11"
+    `ipl_${id}`,       // e.g. "ipl_11"
+    `match-${id}`,     // e.g. "match-11"
+    `match_${id}`,     // e.g. "match_11"
+    `ipl-match-${id}`, // e.g. "ipl-match-11"
+    id,                // e.g. "11"
+  ];
+}
+
+function resolveOdds(oddsMap, matchId) {
+  const candidates = buildCandidateKeys(matchId);
+  for (const key of candidates) {
+    if (oddsMap[key]) return oddsMap[key];
+  }
+  return null;
+}
+
 export default function Matches({ onBetOnMatch, onFantasy11 }) {
   const [matches, setMatches]         = useState([]);
   const [loading, setLoading]         = useState(true);
@@ -64,6 +86,7 @@ export default function Matches({ onBetOnMatch, onFantasy11 }) {
   const [filter, setFilter]           = useState("all");
   const [oddsMap, setOddsMap]         = useState({});
   const [oddsLoading, setOddsLoading] = useState(false);
+  const [oddsError, setOddsError]     = useState("");  // 🔧 FIX: surface odds errors
 
   useEffect(() => { fetchMatches(); }, []);
 
@@ -75,22 +98,35 @@ export default function Matches({ onBetOnMatch, onFantasy11 }) {
       const data = await res.json();
       const list = Array.isArray(data) ? data : data.matches || [];
       setMatches(list);
-      fetchBulkOdds();
     } catch (err) {
       console.error("fetchMatches error:", err);
       setError("Can't connect to server.");
     }
     setLoading(false);
+    // 🔧 FIX: fetch odds independently, not inside the try block above
+    fetchBulkOdds();
   }
 
   async function fetchBulkOdds() {
     setOddsLoading(true);
+    setOddsError("");
     try {
       const res  = await fetch(`${API}/odds-bulk`);
-      if (!res.ok) return;
+      if (!res.ok) {
+        throw new Error(`Odds endpoint returned ${res.status}`);
+      }
       const data = await res.json();
-      setOddsMap(data.odds || {});
-    } catch (err) { console.error("Odds fetch error:", err); }
+
+      // 🔧 FIX: Log the raw keys so you can see exactly what the backend returns
+      const rawOdds = data.odds || data || {};
+      console.log("[Odds] Raw keys from /odds-bulk:", Object.keys(rawOdds));
+      console.log("[Odds] Full payload:", rawOdds);
+
+      setOddsMap(rawOdds);
+    } catch (err) {
+      console.error("[Odds] Fetch error:", err);
+      setOddsError("Odds unavailable");  // 🔧 FIX: show user-visible error
+    }
     setOddsLoading(false);
   }
 
@@ -153,6 +189,7 @@ export default function Matches({ onBetOnMatch, onFantasy11 }) {
     empty:       { textAlign: "center", padding: 48, color: "#888780", fontSize: 14, background: "#F1EFE8", borderRadius: 12 },
     refreshBtn:  { padding: "6px 12px", borderRadius: 8, border: "0.5px solid #d3d1c7", background: "transparent", color: "#444441", cursor: "pointer", fontSize: 12 },
     btnRow:      { display: "flex", gap: 8 },
+    oddsErrBanner: { fontSize: 11, color: "#A32D2D", background: "#FCEBEB", border: "0.5px solid #F09595", borderRadius: 6, padding: "4px 10px", marginBottom: 12, textAlign: "center" },
   };
 
   return (
@@ -169,6 +206,11 @@ export default function Matches({ onBetOnMatch, onFantasy11 }) {
         {matches.length} matches · {liveCount > 0 ? `${liveCount} live now` : "IPL 2026 season"}
         {oddsLoading && <span style={{ marginLeft: 8, color: "#7F77DD" }}>· fetching odds...</span>}
       </div>
+
+      {/* 🔧 FIX: Show odds error banner if odds failed */}
+      {oddsError && !oddsLoading && (
+        <div style={s.oddsErrBanner}>⚠️ {oddsError} — odds will not display</div>
+      )}
 
       <div style={s.filterRow}>
         {["all", "upcoming", "live", "completed"].map(f => (
@@ -191,10 +233,9 @@ export default function Matches({ onBetOnMatch, onFantasy11 }) {
       {!loading && !error && filtered.length === 0 && <div style={s.empty}>No {filter} matches found.</div>}
 
       {!loading && !error && filtered.map(match => {
-        // ✅ FIX: use "ipl-{id}" format to match what /odds-bulk returns
-        const matchKey  = `ipl-${match.id}`;
-        const odds      = oddsMap[matchKey] || null;
-        const roles     = getOddsLabel(odds, match.team1, match.team2);
+        // 🔧 FIX: use flexible key resolution instead of hardcoded "ipl-{id}"
+        const odds  = resolveOdds(oddsMap, match.id);
+        const roles = getOddsLabel(odds, match.team1, match.team2);
 
         let team1Pct = 50, team2Pct = 50;
         if (odds && odds[match.team1] && odds[match.team2]) {
@@ -283,7 +324,6 @@ export default function Matches({ onBetOnMatch, onFantasy11 }) {
               📅 {formatDate(match.date, match.time)} &nbsp;·&nbsp; 📍 {match.venue}
             </div>
 
-            {/* ── UPCOMING: Bet + Fantasy 11 buttons side by side ── */}
             {match.status === "upcoming" && (
               <div style={s.btnRow}>
                 <button style={s.betBtn} onClick={() => onBetOnMatch(matchInfo)}>
@@ -295,7 +335,6 @@ export default function Matches({ onBetOnMatch, onFantasy11 }) {
               </div>
             )}
 
-            {/* ── LIVE: Locked betting + View Fantasy 11 ── */}
             {match.status === "live" && (
               <>
                 <div style={s.liveLockBtn}>
@@ -308,7 +347,6 @@ export default function Matches({ onBetOnMatch, onFantasy11 }) {
               </>
             )}
 
-            {/* ── COMPLETED: Disabled bet + View Fantasy 11 ── */}
             {match.status === "completed" && (
               <>
                 <button style={s.disabledBtn} disabled>Match Completed</button>
