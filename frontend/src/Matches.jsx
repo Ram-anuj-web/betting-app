@@ -191,7 +191,8 @@ export default function Matches({ onBetOnMatch, onFantasy11 }) {
       {!loading && !error && filtered.length === 0 && <div style={s.empty}>No {filter} matches found.</div>}
 
       {!loading && !error && filtered.map(match => {
-        const matchKey  = match.id;
+        // ✅ FIX: use "ipl-{id}" format to match what /odds-bulk returns
+        const matchKey  = `ipl-${match.id}`;
         const odds      = oddsMap[matchKey] || null;
         const roles     = getOddsLabel(odds, match.team1, match.team2);
 
@@ -203,7 +204,6 @@ export default function Matches({ onBetOnMatch, onFantasy11 }) {
           team2Pct = 100 - team1Pct;
         }
 
-        // ✅ matchInfo passed to both bet and fantasy11 handlers
         const matchInfo = {
           matchLabel: `${match.team1} vs ${match.team2}`,
           teams:      [match.team1, match.team2],
