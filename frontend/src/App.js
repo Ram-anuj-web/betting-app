@@ -264,8 +264,7 @@ export default function App() {
         const res  = await fetch(`${API}/ipl-matches`);
         const data = await res.json();
         const list = Array.isArray(data) ? data : data.matches || [];
-        const idNum = parseInt(prefilledMatch.matchId.replace("ipl-", ""));
-        const found = list.find(m => m.id === idNum);
+        const found = list.find(m => m.id === prefilledMatch.matchId);
         if (found) setMatchStatus(found.status);
       } catch (err) { console.error("Failed to check match status", err); }
     }
@@ -400,13 +399,14 @@ export default function App() {
   const handleBetOnMatch = (matchInfo) => {
     const iplSport = { id: "cricket", name: "Cricket", emoji: "🏏", teams: matchInfo.teams };
     setSelectedSport(iplSport); setSelectedTeam(null); setBetAmount("");
-    setPrefilledMatch(matchInfo); setMatchStatus(null); setError("");
+    setPrefilledMatch(matchInfo); setMatchStatus(matchInfo.status || null); setError("");
     setScreen("bet");
   };
 
+  // ✅ FIX: set matchStatus from matchInfo.status so Fantasy11 shows read-only for live/completed
   const handleFantasy11 = (matchInfo) => {
     setPrefilledMatch(matchInfo);
-    setMatchStatus(null);
+    setMatchStatus(matchInfo.status || null);
     setScreen("fantasy11");
   };
 
