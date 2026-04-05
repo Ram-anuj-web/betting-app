@@ -94,14 +94,15 @@ function isMatchStarted(contest) {
   return new Date() >= matchDate;
 }
 
-// ── FIX: Helper to determine contest result for a user ────────────────────────
+// ── FIX: isSolo check takes priority over winner field ────────────────────────
 function getContestResult(c, username) {
   const winner = c.winner || "";
-  const isRefund = winner === "refund" || winner === "no_scores" || winner === "";
-  const isSolo   = c.participants.length === 1 && c.participants[0]?.username === username;
-  const iWon     = !isRefund && winner.split(", ").includes(username);
-
-  if (isRefund || isSolo) return "refund";
+  // Solo contest — always refund regardless of what backend set as winner
+  const isSolo = c.participants.length === 1 && c.participants[0]?.username === username;
+  if (isSolo) return "refund";
+  // Explicit refund/no-result states
+  if (winner === "refund" || winner === "no_scores" || winner === "") return "refund";
+  const iWon = winner.split(", ").includes(username);
   if (iWon) return "won";
   return "lost";
 }
@@ -441,7 +442,6 @@ function HowItWorks() {
 
 export default function Multiplayer({ username, points, setPoints }) {
   const [view, setView] = useState("list");
-
   const [challenges, setChallenges]           = useState([]);
   const [challengeMode, setChallengeMode]     = useState("bet");
   const [challengeVisibility, setChallengeVisibility] = useState("public");
@@ -455,7 +455,6 @@ export default function Multiplayer({ username, points, setPoints }) {
   const [wager, setWager]                     = useState("");
   const [acceptingId, setAcceptingId]         = useState(null);
   const [acceptTeam, setAcceptTeam]           = useState(null);
-
   const [contests, setContests]             = useState([]);
   const [openContests, setOpenContests]     = useState([]);
   const [contestMode, setContestMode]       = useState("bet");
@@ -471,9 +470,7 @@ export default function Multiplayer({ username, points, setPoints }) {
   const [joiningContest, setJoiningContest] = useState(null);
   const [joinTeam, setJoinTeam]             = useState(null);
   const [passwordModal, setPasswordModal]   = useState(null);
-
   const [f11ChallengeMatch, setF11ChallengeMatch] = useState(null);
-
   const [loading, setLoading]           = useState(false);
   const [error, setError]               = useState("");
   const [success, setSuccess]           = useState("");
@@ -536,7 +533,6 @@ export default function Multiplayer({ username, points, setPoints }) {
   async function handleCreate() {
     const isPrivate = challengeVisibility === "private";
     const isF11 = challengeMode === "fantasy11";
-
     if (isPrivate) {
       if (invitedPlayers.length === 0) return flash("error", "Add at least one player to invite");
       if (!challengePassword.trim())   return flash("error", "Set a password for the private challenge");
@@ -547,62 +543,34 @@ export default function Multiplayer({ username, points, setPoints }) {
     if (selectedSport.id === "cricket" && !selectedIPLMatch) return flash("error", "Please pick an IPL match");
     if (!matchLabel.trim()) return flash("error", "Enter a match label");
     if (!isF11 && !myTeam) return flash("error", "Pick your team");
-
     const w = parseInt(wager);
     if (!w || w <= 0) return flash("error", "Enter a valid wager");
     if (w > points)   return flash("error", "Not enough points");
-
     setLoading(true);
     try {
       const body = {
-        challenger: username,
-        sport: selectedSport.id,
-        matchLabel,
+        challenger: username, sport: selectedSport.id, matchLabel,
         matchId: selectedIPLMatch ? selectedIPLMatch.id : "manual",
-        challengerTeam: isF11 ? "fantasy11" : myTeam,
-        wager: w,
-        team1: selectedIPLMatch?.team1 || null,
-        team2: selectedIPLMatch?.team2 || null,
-        visibility: challengeVisibility,
-        mode: challengeMode,
-        ...(isPrivate
-          ? { invitedPlayers, password: challengePassword.trim() }
-          : { opponent: opponentName.trim() }
-        ),
+        challengerTeam: isF11 ? "fantasy11" : myTeam, wager: w,
+        team1: selectedIPLMatch?.team1 || null, team2: selectedIPLMatch?.team2 || null,
+        visibility: challengeVisibility, mode: challengeMode,
+        ...(isPrivate ? { invitedPlayers, password: challengePassword.trim() } : { opponent: opponentName.trim() }),
       };
-
-      const res = await fetch(`${API}/challenge/create`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
+      const res = await fetch(`${API}/challenge/create`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const data = await res.json();
       if (res.ok) {
         setPoints(data.challengerPoints);
-        const msg = isF11
+        flash("success", isF11
           ? `Fantasy 11 challenge created! Now go to the Fantasy 11 tab to build your squad for ${matchLabel}.`
-          : isPrivate
-            ? `Private challenge created! Share the password with ${invitedPlayers.join(", ")}.`
-            : `Challenge sent to ${opponentName}! ${w} pts escrowed.`;
-        flash("success", msg);
-
-        if (isF11 && selectedIPLMatch) {
-          setF11ChallengeMatch({
-            matchId: selectedIPLMatch.id,
-            matchLabel,
-            teams: [selectedIPLMatch.team1, selectedIPLMatch.team2],
-          });
-        }
-
+          : isPrivate ? `Private challenge created! Share the password with ${invitedPlayers.join(", ")}.`
+          : `Challenge sent to ${opponentName}! ${w} pts escrowed.`);
+        if (isF11 && selectedIPLMatch) setF11ChallengeMatch({ matchId: selectedIPLMatch.id, matchLabel, teams: [selectedIPLMatch.team1, selectedIPLMatch.team2] });
         setView("list");
         setOpponentName(""); setSelectedSport(null); setMyTeam(null);
         setMatchLabel(""); setWager(""); setSelectedIPLMatch(null);
-        setChallengeVisibility("public"); setInvitedPlayers([]); setChallengePassword("");
-        setChallengeMode("bet");
+        setChallengeVisibility("public"); setInvitedPlayers([]); setChallengePassword(""); setChallengeMode("bet");
         fetchChallenges();
-      } else {
-        flash("error", data.message || "Failed to create challenge");
-      }
+      } else { flash("error", data.message || "Failed to create challenge"); }
     } catch { flash("error", "Can't connect to server"); }
     setLoading(false);
   }
@@ -611,18 +579,10 @@ export default function Multiplayer({ username, points, setPoints }) {
     if (!acceptTeam) return flash("error", "Pick your team first");
     setLoading(true);
     try {
-      const res = await fetch(`${API}/challenge/accept`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ challengeId, opponentTeam: acceptTeam, username }),
-      });
+      const res = await fetch(`${API}/challenge/accept`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ challengeId, opponentTeam: acceptTeam, username }) });
       const data = await res.json();
-      if (res.ok) {
-        setPoints(data.opponentPoints);
-        flash("success", "Challenge accepted! Match is live 🔥");
-        setAcceptingId(null); setAcceptTeam(null);
-        fetchChallenges();
-      } else { flash("error", data.message || "Failed to accept"); }
+      if (res.ok) { setPoints(data.opponentPoints); flash("success", "Challenge accepted! Match is live 🔥"); setAcceptingId(null); setAcceptTeam(null); fetchChallenges(); }
+      else { flash("error", data.message || "Failed to accept"); }
     } catch { flash("error", "Can't connect to server"); }
     setLoading(false);
   }
@@ -630,11 +590,7 @@ export default function Multiplayer({ username, points, setPoints }) {
   async function handleDecline(challengeId) {
     setLoading(true);
     try {
-      const res = await fetch(`${API}/challenge/decline`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ challengeId, username }),
-      });
+      const res = await fetch(`${API}/challenge/decline`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ challengeId, username }) });
       const data = await res.json();
       if (res.ok) { flash("success", "Challenge declined."); fetchChallenges(); }
       else flash("error", data.message);
@@ -655,41 +611,15 @@ export default function Multiplayer({ username, points, setPoints }) {
     const max = parseInt(cMaxPlayers);
     if (!max || max < 2 || max > 12) return flash("error", "Max players must be 2–12");
     if (cVisibility === "private" && !cPassword.trim()) return flash("error", "Set a password for the private contest");
-
     setLoading(true);
     try {
-      const res = await fetch(`${API}/contest/create`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          createdBy: username,
-          name: contestName.trim(),
-          sport: cSport.id,
-          matchLabel: cMatchLabel,
-          matchId: cIPLMatch ? cIPLMatch.id : "manual",
-          team1: cIPLMatch?.team1 || null,
-          team2: cIPLMatch?.team2 || null,
-          entryFee: fee,
-          maxPlayers: max,
-          myTeam: isF11 ? "fantasy11" : cMyTeam,
-          mode: contestMode,
-          visibility: cVisibility,
-          ...(cVisibility === "private" ? { password: cPassword.trim() } : {}),
-        }),
-      });
+      const res = await fetch(`${API}/contest/create`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ createdBy: username, name: contestName.trim(), sport: cSport.id, matchLabel: cMatchLabel, matchId: cIPLMatch ? cIPLMatch.id : "manual", team1: cIPLMatch?.team1 || null, team2: cIPLMatch?.team2 || null, entryFee: fee, maxPlayers: max, myTeam: isF11 ? "fantasy11" : cMyTeam, mode: contestMode, visibility: cVisibility, ...(cVisibility === "private" ? { password: cPassword.trim() } : {}) }) });
       const data = await res.json();
       if (res.ok) {
         setPoints(data.creatorPoints);
-        flash("success", isF11
-          ? "Fantasy 11 contest created! Go to Fantasy 11 tab to build your squad."
-          : cVisibility === "private"
-            ? "Private contest created! Share the password with your friends."
-            : "Contest created! Others can now join.");
-        setContestName(""); setCsport(null); setCMyTeam(null);
-        setCMatchLabel(""); setCEntryFee(""); setCMaxPlayers("10"); setCIplMatch(null);
-        setCVisibility("public"); setCPassword(""); setContestMode("bet");
-        await fetchMyContests(); await fetchOpenContests();
-        setView("contests");
+        flash("success", isF11 ? "Fantasy 11 contest created! Go to Fantasy 11 tab to build your squad." : cVisibility === "private" ? "Private contest created! Share the password with your friends." : "Contest created! Others can now join.");
+        setContestName(""); setCsport(null); setCMyTeam(null); setCMatchLabel(""); setCEntryFee(""); setCMaxPlayers("10"); setCIplMatch(null); setCVisibility("public"); setCPassword(""); setContestMode("bet");
+        await fetchMyContests(); await fetchOpenContests(); setView("contests");
       } else { flash("error", data.message || "Failed"); }
     } catch { flash("error", "Can't connect to server"); }
     setLoading(false);
@@ -700,18 +630,10 @@ export default function Multiplayer({ username, points, setPoints }) {
     if (!teamToUse) return flash("error", "Pick a team first");
     setLoading(true);
     try {
-      const res = await fetch(`${API}/contest/join`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contestId, username, team: teamToUse, ...(password ? { password } : {}) }),
-      });
+      const res = await fetch(`${API}/contest/join`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contestId, username, team: teamToUse, ...(password ? { password } : {}) }) });
       const data = await res.json();
-      if (res.ok) {
-        setPoints(data.userPoints);
-        flash("success", "Joined the contest!");
-        setJoiningContest(null); setJoinTeam(null); setPasswordModal(null);
-        fetchMyContests(); fetchOpenContests();
-      } else { flash("error", data.message || "Failed — check your password and try again"); }
+      if (res.ok) { setPoints(data.userPoints); flash("success", "Joined the contest!"); setJoiningContest(null); setJoinTeam(null); setPasswordModal(null); fetchMyContests(); fetchOpenContests(); }
+      else { flash("error", data.message || "Failed — check your password and try again"); }
     } catch { flash("error", "Can't connect to server"); }
     setLoading(false);
   }
@@ -725,11 +647,7 @@ export default function Multiplayer({ username, points, setPoints }) {
   async function handleCancelContest(contestId) {
     setLoading(true);
     try {
-      const res = await fetch(`${API}/contest/cancel`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contestId, cancelledBy: username }),
-      });
+      const res = await fetch(`${API}/contest/cancel`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contestId, cancelledBy: username }) });
       const data = await res.json();
       if (res.ok) { flash("success", "Contest cancelled. Fees refunded."); fetchMyContests(); fetchOpenContests(); }
       else flash("error", data.message);
@@ -748,71 +666,44 @@ export default function Multiplayer({ username, points, setPoints }) {
   return (
     <div style={S.container}>
       {passwordModal && (
-        <PasswordEntryModal
-          contest={passwordModal}
-          matchTeams={getContestTeams(passwordModal)}
+        <PasswordEntryModal contest={passwordModal} matchTeams={getContestTeams(passwordModal)}
           onConfirm={(pw, team) => handleJoinContest(passwordModal._id, pw, team)}
-          onCancel={() => { setPasswordModal(null); setJoiningContest(null); setJoinTeam(null); }}
-        />
+          onCancel={() => { setPasswordModal(null); setJoiningContest(null); setJoinTeam(null); }} />
       )}
-
       <div style={S.header}>
         <div style={S.title}>⚔️ Multiplayer</div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <span style={{ fontSize: 11, padding: "3px 10px", borderRadius: 99, fontWeight: 600, background: serverOnline ? "#E1F5EE" : "#FCEBEB", color: serverOnline ? "#085041" : "#A32D2D" }}>
             {serverOnline ? "🟢 Server Online" : "🔴 Server Offline"}
           </span>
-          {pendingIncoming.length > 0 && (
-            <span style={{ background: "#E24B4A", color: "#fff", borderRadius: 99, padding: "2px 10px", fontSize: 12, fontWeight: 600 }}>
-              {pendingIncoming.length} incoming
-            </span>
-          )}
+          {pendingIncoming.length > 0 && <span style={{ background: "#E24B4A", color: "#fff", borderRadius: 99, padding: "2px 10px", fontSize: 12, fontWeight: 600 }}>{pendingIncoming.length} incoming</span>}
         </div>
       </div>
-
       {!serverOnline && <div style={S.flash("error")}>⚠️ Can't connect to server.</div>}
       {error   && <div style={S.flash("error")}>{error}</div>}
       {success && <div style={S.flash("success")}>{success}</div>}
-
       <div style={S.tabs}>
         <button style={S.tab(view === "list")}     onClick={() => setView("list")}>My Challenges</button>
         <button style={S.tab(view === "create")}   onClick={() => setView("create")}>+ New Challenge</button>
-        {pendingIncoming.length > 0 && (
-          <button style={S.tab(view === "incoming")} onClick={() => setView("incoming")}>
-            Incoming ({pendingIncoming.length})
-          </button>
-        )}
+        {pendingIncoming.length > 0 && <button style={S.tab(view === "incoming")} onClick={() => setView("incoming")}>Incoming ({pendingIncoming.length})</button>}
         <button style={S.tab(view === "contests")} onClick={() => { fetchMyContests(); fetchOpenContests(); setView("contests"); }}>🏆 Contests</button>
         <button style={S.tab(view === "createContest")} onClick={() => setView("createContest")}>+ New Contest</button>
       </div>
-
       {(view === "list" || view === "contests") && <HowItWorks />}
 
-      {/* ── Inline Fantasy11 Builder ── */}
       {f11ChallengeMatch && (view === "list") && (
         <div style={{ marginBottom: 20, background: "#0d1117", borderRadius: 16, padding: 16, border: "1px solid #ffd16644" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
             <div style={{ fontWeight: 700, color: "#ffd166", fontSize: 15 }}>🏏 Build Your Fantasy 11 Squad</div>
             <button onClick={() => setF11ChallengeMatch(null)} style={{ background: "none", border: "1px solid #30363d", color: "#7d8590", borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 12 }}>Done</button>
           </div>
-          <Fantasy11
-            username={username}
-            points={points}
-            setPoints={setPoints}
-            matchInfo={f11ChallengeMatch}
-            matchStatus={null}
-          />
+          <Fantasy11 username={username} points={points} setPoints={setPoints} matchInfo={f11ChallengeMatch} matchStatus={null} />
         </div>
       )}
 
-      {/* ── My Challenges ── */}
       {view === "list" && (
         <div>
-          {myChallenges.length === 0 && (
-            <div style={{ ...S.cardDark, textAlign: "center", color: "#888780", fontSize: 14, padding: 32 }}>
-              No challenges yet. Create one to get started!
-            </div>
-          )}
+          {myChallenges.length === 0 && <div style={{ ...S.cardDark, textAlign: "center", color: "#888780", fontSize: 14, padding: 32 }}>No challenges yet. Create one to get started!</div>}
           {myChallenges.map(c => {
             const isChallenger = c.challenger === username;
             const myTeamName   = isChallenger ? c.challengerTeam : c.opponentTeam;
@@ -820,15 +711,12 @@ export default function Multiplayer({ username, points, setPoints }) {
             const opponent     = isChallenger ? c.opponent : c.challenger;
             const sport        = SPORTS.find(s => s.id === c.sport);
             const isF11        = isF11Challenge(c);
-
-            // ── FIX: correct challenge result labels ──────────────────────────
             const challengeResult = (() => {
               if (c.status !== "settled") return null;
               if (c.winner === "draw") return "draw";
               if (c.winner === username) return "won";
               return "lost";
             })();
-
             return (
               <div key={c._id} style={S.card}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
@@ -842,13 +730,11 @@ export default function Multiplayer({ username, points, setPoints }) {
                   </div>
                   <div style={{ textAlign: "right" }}>{statusBadge(c.status)}</div>
                 </div>
-
                 <div style={S.pointsRow}>
                   <PointsInfoBox icon="💰" label="Your Wager" value={`${c.wager} pts`} color="#BA7517" />
                   <PointsInfoBox icon="🏆" label="Win Prize" value={`${c.wager * 2} pts`} color="#1D9E75" />
                   <PointsInfoBox icon="📈" label="Profit" value={`+${c.wager} pts`} color="#7F77DD" />
                 </div>
-
                 {isF11 ? (
                   <div style={{ background: "#ffd16610", border: "1px solid #ffd16644", borderRadius: 8, padding: "10px 14px", marginBottom: 8, fontSize: 12, color: "#8a6a00" }}>
                     🏏 Fantasy 11 — highest squad points wins. Build your squad in the <b>Fantasy 11 tab</b> for <b>{c.matchLabel}</b>.
@@ -857,47 +743,25 @@ export default function Multiplayer({ username, points, setPoints }) {
                   <div style={S.vsBox}>
                     <div style={S.teamChip(true)}>{myTeamName || <span style={{ opacity: 0.5 }}>You</span>}</div>
                     <div style={{ fontSize: 12, color: "#888780", fontWeight: 500 }}>VS</div>
-                    {theirTeam
-                      ? <div style={S.teamChip(false)}>{opponent}: {theirTeam}</div>
-                      : <div style={{ flex: 1, textAlign: "center", fontSize: 13, color: "#888780", fontStyle: "italic" }}>{opponent ? `${opponent} hasn't picked yet...` : "Waiting for invited player..."}</div>
-                    }
+                    {theirTeam ? <div style={S.teamChip(false)}>{opponent}: {theirTeam}</div>
+                      : <div style={{ flex: 1, textAlign: "center", fontSize: 13, color: "#888780", fontStyle: "italic" }}>{opponent ? `${opponent} hasn't picked yet...` : "Waiting for invited player..."}</div>}
                   </div>
                 )}
-
                 {c.status === "active" && <div style={S.autoSettleNotice}>⏳ Auto-settling after match ends via Cricket API</div>}
-
-                {/* ── FIX: Correct result labels for challenges ── */}
-                {challengeResult === "won" && (
-                  <div style={{ fontSize: 14, fontWeight: 600, marginTop: 6, padding: "10px 14px", borderRadius: 8, background: "#E1F5EE", color: "#0F6E56" }}>
-                    🏆 You won {c.wager * 2} pts! (+{c.wager} profit)
-                  </div>
-                )}
-                {challengeResult === "draw" && (
-                  <div style={{ fontSize: 14, fontWeight: 600, marginTop: 6, padding: "10px 14px", borderRadius: 8, background: "#F1EFE8", color: "#888780" }}>
-                    🤝 Draw — {c.wager} pts refunded
-                  </div>
-                )}
-                {challengeResult === "lost" && (
-                  <div style={{ fontSize: 14, fontWeight: 600, marginTop: 6, padding: "10px 14px", borderRadius: 8, background: "#FCEBEB", color: "#993C1D" }}>
-                    😢 {c.winner} won · You lost {c.wager} pts
-                  </div>
-                )}
+                {challengeResult === "won" && <div style={{ fontSize: 14, fontWeight: 600, marginTop: 6, padding: "10px 14px", borderRadius: 8, background: "#E1F5EE", color: "#0F6E56" }}>🏆 You won {c.wager * 2} pts! (+{c.wager} profit)</div>}
+                {challengeResult === "draw" && <div style={{ fontSize: 14, fontWeight: 600, marginTop: 6, padding: "10px 14px", borderRadius: 8, background: "#F1EFE8", color: "#888780" }}>🤝 Draw — {c.wager} pts refunded</div>}
+                {challengeResult === "lost" && <div style={{ fontSize: 14, fontWeight: 600, marginTop: 6, padding: "10px 14px", borderRadius: 8, background: "#FCEBEB", color: "#993C1D" }}>😢 {c.winner} won · You lost {c.wager} pts</div>}
               </div>
             );
           })}
         </div>
       )}
 
-      {/* ── Create Challenge ── */}
       {view === "create" && (
         <div style={S.card}>
           <ModePicker value={challengeMode} onChange={(m) => { setChallengeMode(m); setMyTeam(null); }} />
-
           <div style={S.label}>Challenge type</div>
-          <PrivacyToggle value={challengeVisibility} onChange={(v) => {
-            setChallengeVisibility(v); setInvitedPlayers([]); setChallengePassword(""); setOpponentName("");
-          }} />
-
+          <PrivacyToggle value={challengeVisibility} onChange={(v) => { setChallengeVisibility(v); setInvitedPlayers([]); setChallengePassword(""); setOpponentName(""); }} />
           {challengeVisibility === "private" ? (
             <>
               <div style={{ background: "#EEEDFE", border: "0.5px solid #AFA9EC", borderRadius: 8, padding: "10px 14px", marginBottom: 14, fontSize: 12, color: "#3C3489", display: "flex", gap: 8 }}>
@@ -913,56 +777,25 @@ export default function Multiplayer({ username, points, setPoints }) {
               <input style={S.input} placeholder="Enter their username..." value={opponentName} onChange={e => setOpponentName(e.target.value)} />
             </>
           )}
-
           <div style={S.label}>Sport</div>
           <div style={S.pillRow}>
-            {SPORTS.map(s => (
-              <button key={s.id} style={S.pill(selectedSport?.id === s.id)} onClick={() => { setSelectedSport(s); setMyTeam(null); setSelectedIPLMatch(null); setMatchLabel(""); }}>
-                {s.emoji} {s.name}
-              </button>
-            ))}
+            {SPORTS.map(s => <button key={s.id} style={S.pill(selectedSport?.id === s.id)} onClick={() => { setSelectedSport(s); setMyTeam(null); setSelectedIPLMatch(null); setMatchLabel(""); }}>{s.emoji} {s.name}</button>)}
           </div>
-
-          {selectedSport?.id === "cricket" && (
-            <>
-              <div style={S.label}>🏏 Pick an IPL 2026 Match</div>
-              <IPLMatchPicker selectedMatch={selectedIPLMatch} onSelect={(match) => handleIPLMatchSelect(match, setSelectedIPLMatch, setMatchLabel, setMyTeam)} />
-            </>
-          )}
-
+          {selectedSport?.id === "cricket" && (<><div style={S.label}>🏏 Pick an IPL 2026 Match</div><IPLMatchPicker selectedMatch={selectedIPLMatch} onSelect={(match) => handleIPLMatchSelect(match, setSelectedIPLMatch, setMatchLabel, setMyTeam)} /></>)}
           {challengeMode === "fantasy11" && selectedIPLMatch ? (
             <Fantasy11Banner matchId={selectedIPLMatch.id} matchLabel={matchLabel} teams={[selectedIPLMatch.team1, selectedIPLMatch.team2]} />
           ) : challengeMode === "bet" && selectedSport && (
-            <>
-              <div style={S.label}>Pick your team</div>
-              <div style={S.pillRow}>
-                {getTeamsFor(selectedSport, selectedIPLMatch).map(t => (
-                  <button key={t} style={S.pill(myTeam === t)} onClick={() => setMyTeam(t)}>{t}</button>
-                ))}
-              </div>
-            </>
+            <><div style={S.label}>Pick your team</div><div style={S.pillRow}>{getTeamsFor(selectedSport, selectedIPLMatch).map(t => <button key={t} style={S.pill(myTeam === t)} onClick={() => setMyTeam(t)}>{t}</button>)}</div></>
           )}
-
           <div style={S.label}>Match label</div>
           <input style={S.input} placeholder="e.g. MI vs KKR – IPL 2026" value={matchLabel} onChange={e => setMatchLabel(e.target.value)} />
-
           <div style={S.label}>Wager (your points: {points.toLocaleString()})</div>
           <div style={S.pillRow}>
-            {[50, 100, 250, 500].map(amt => (
-              <button key={amt} style={S.pill(parseInt(wager) === amt)} onClick={() => setWager(String(Math.min(amt, points)))}>{amt}</button>
-            ))}
+            {[50, 100, 250, 500].map(amt => <button key={amt} style={S.pill(parseInt(wager) === amt)} onClick={() => setWager(String(Math.min(amt, points)))}>{amt}</button>)}
             <button style={S.pill(parseInt(wager) === points)} onClick={() => setWager(String(points))}>All in 🔥</button>
           </div>
           <input style={S.input} type="number" placeholder="Or enter custom amount..." value={wager} onChange={e => setWager(e.target.value)} max={points} />
-
-          {parseInt(wager) > 0 && (
-            <div style={S.pointsRow}>
-              <PointsInfoBox icon="💰" label="You Wager" value={`${wager} pts`} color="#BA7517" />
-              <PointsInfoBox icon="🏆" label="If You Win" value={`${parseInt(wager) * 2} pts`} color="#1D9E75" />
-              <PointsInfoBox icon="📈" label="Profit" value={`+${wager} pts`} color="#7F77DD" />
-            </div>
-          )}
-
+          {parseInt(wager) > 0 && <div style={S.pointsRow}><PointsInfoBox icon="💰" label="You Wager" value={`${wager} pts`} color="#BA7517" /><PointsInfoBox icon="🏆" label="If You Win" value={`${parseInt(wager) * 2} pts`} color="#1D9E75" /><PointsInfoBox icon="📈" label="Profit" value={`+${wager} pts`} color="#7F77DD" /></div>}
           <div style={S.row}>
             <button style={S.btn(challengeMode === "fantasy11" ? "#ffd166" : "#7F77DD")} onClick={handleCreate} disabled={loading}>
               {loading ? "Sending..." : challengeMode === "fantasy11" ? "🏏 Create Fantasy 11 Challenge" : challengeVisibility === "private" ? "Send Private Challenge 🔒" : "Send Challenge ⚡"}
@@ -972,19 +805,15 @@ export default function Multiplayer({ username, points, setPoints }) {
         </div>
       )}
 
-      {/* ── Incoming Challenges ── */}
       {view === "incoming" && (
         <div>
-          {pendingIncoming.length === 0 && (
-            <div style={{ ...S.cardDark, textAlign: "center", color: "#888780", fontSize: 14, padding: 32 }}>No incoming challenges right now.</div>
-          )}
+          {pendingIncoming.length === 0 && <div style={{ ...S.cardDark, textAlign: "center", color: "#888780", fontSize: 14, padding: 32 }}>No incoming challenges right now.</div>}
           {pendingIncoming.map(c => {
-            const sport      = SPORTS.find(s => s.id === c.sport);
-            const allTeams   = getChallengeTeams(c);
-            const takenTeam  = c.challengerTeam;
-            const myOptions  = allTeams.filter(t => t !== takenTeam && t !== "fantasy11");
-            const isF11      = isF11Challenge(c);
-
+            const sport = SPORTS.find(s => s.id === c.sport);
+            const allTeams = getChallengeTeams(c);
+            const takenTeam = c.challengerTeam;
+            const myOptions = allTeams.filter(t => t !== takenTeam && t !== "fantasy11");
+            const isF11 = isF11Challenge(c);
             return (
               <div key={c._id} style={S.card}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
@@ -994,68 +823,38 @@ export default function Multiplayer({ username, points, setPoints }) {
                       {c.visibility === "private" && <span style={S.privateBadge}>🔒 Private</span>}
                       {isF11 && <span style={S.f11badge}>🏏 Fantasy 11</span>}
                     </div>
-                    <div style={{ fontSize: 15, fontWeight: 600 }}>
-                      <span style={{ color: "#7F77DD" }}>{c.challenger}</span>
-                      <span style={{ color: "#888780", fontWeight: 400 }}> challenges you!</span>
-                    </div>
+                    <div style={{ fontSize: 15, fontWeight: 600 }}><span style={{ color: "#7F77DD" }}>{c.challenger}</span><span style={{ color: "#888780", fontWeight: 400 }}> challenges you!</span></div>
                   </div>
                   <div style={{ textAlign: "right" }}>{statusBadge(c.status)}</div>
                 </div>
-
                 <div style={S.pointsRow}>
                   <PointsInfoBox icon="💰" label="Entry Cost" value={`${c.wager} pts`} color="#BA7517" />
                   <PointsInfoBox icon="🏆" label="Prize Pool" value={`${c.wager * 2} pts`} color="#1D9E75" />
                   <PointsInfoBox icon="📈" label="Profit" value={`+${c.wager} pts`} color="#7F77DD" />
                 </div>
-
                 {isF11 ? (
                   <div style={{ background: "#ffd16610", border: "1px solid #ffd16644", borderRadius: 8, padding: "10px 14px", marginBottom: 12, fontSize: 13, color: "#8a6a00" }}>
                     🏏 Fantasy 11 challenge — accept to stake {c.wager} pts, then build your squad in the Fantasy 11 tab for <b>{c.matchLabel}</b>. Highest fantasy points wins!
                   </div>
                 ) : (
                   <div style={S.vsMatchup}>
-                    <div style={S.vsTeamBox(true)}>
-                      <div style={S.vsTeamName(true)}>{allTeams[0] || "—"}</div>
-                      <div style={S.vsTeamSub}>{c.challenger} picked this</div>
-                    </div>
+                    <div style={S.vsTeamBox(true)}><div style={S.vsTeamName(true)}>{allTeams[0] || "—"}</div><div style={S.vsTeamSub}>{c.challenger} picked this</div></div>
                     <div style={S.vsDivider}>VS</div>
-                    <div style={S.vsTeamBox(false)}>
-                      <div style={S.vsTeamName(false)}>{allTeams[1] || "—"}</div>
-                      <div style={S.vsTeamSub}>Your side</div>
-                    </div>
+                    <div style={S.vsTeamBox(false)}><div style={S.vsTeamName(false)}>{allTeams[1] || "—"}</div><div style={S.vsTeamSub}>Your side</div></div>
                   </div>
                 )}
-
                 {acceptingId === c._id ? (
                   <div>
-                    {!isF11 && (
-                      <>
-                        <div style={S.label}>Confirm your team pick</div>
-                        <div style={S.pillRow}>
-                          {myOptions.map(t => (
-                            <button key={t} style={S.selectablePill(acceptTeam === t, false)} onClick={() => setAcceptTeam(t)}>{t}{acceptTeam === t && " ✓"}</button>
-                          ))}
-                          <button key={takenTeam} style={S.selectablePill(false, true)} disabled title={`${c.challenger} already picked this team`}>{takenTeam} (taken)</button>
-                        </div>
-                      </>
-                    )}
-                    {isF11 && (
-                      <div style={{ fontSize: 12, color: "#7d8590", marginBottom: 12 }}>
-                        After accepting, go to <b>Fantasy 11 tab → {c.matchLabel}</b> to build your squad.
-                      </div>
-                    )}
+                    {!isF11 && (<><div style={S.label}>Confirm your team pick</div><div style={S.pillRow}>{myOptions.map(t => <button key={t} style={S.selectablePill(acceptTeam === t, false)} onClick={() => setAcceptTeam(t)}>{t}{acceptTeam === t && " ✓"}</button>)}<button key={takenTeam} style={S.selectablePill(false, true)} disabled title={`${c.challenger} already picked this team`}>{takenTeam} (taken)</button></div></>)}
+                    {isF11 && <div style={{ fontSize: 12, color: "#7d8590", marginBottom: 12 }}>After accepting, go to <b>Fantasy 11 tab → {c.matchLabel}</b> to build your squad.</div>}
                     <div style={S.row}>
-                      <button style={S.btn("#1D9E75")} onClick={() => handleAccept(c._id)} disabled={loading || (!isF11 && !acceptTeam)}>
-                        {loading ? "Accepting..." : `Accept & Pay ${c.wager} pts ✓`}
-                      </button>
+                      <button style={S.btn("#1D9E75")} onClick={() => handleAccept(c._id)} disabled={loading || (!isF11 && !acceptTeam)}>{loading ? "Accepting..." : `Accept & Pay ${c.wager} pts ✓`}</button>
                       <button style={S.btnGhost} onClick={() => { setAcceptingId(null); setAcceptTeam(null); }}>Back</button>
                     </div>
                   </div>
                 ) : (
                   <div style={S.row}>
-                    <button style={S.btn("#1D9E75")} onClick={() => { setAcceptingId(c._id); setAcceptTeam(isF11 ? "fantasy11" : (myOptions[0] || null)); }}>
-                      Accept Challenge
-                    </button>
+                    <button style={S.btn("#1D9E75")} onClick={() => { setAcceptingId(c._id); setAcceptTeam(isF11 ? "fantasy11" : (myOptions[0] || null)); }}>Accept Challenge</button>
                     <button style={S.btn("#E24B4A")} onClick={() => handleDecline(c._id)} disabled={loading}>Decline</button>
                   </div>
                 )}
@@ -1065,34 +864,22 @@ export default function Multiplayer({ username, points, setPoints }) {
         </div>
       )}
 
-      {/* ── Contests List ── */}
       {view === "contests" && (
         <div>
           <div style={{ fontSize: 13, fontWeight: 600, color: "#444441", marginBottom: 10 }}>My Contests</div>
-          {contests.length === 0 && (
-            <div style={{ ...S.cardDark, textAlign: "center", color: "#888780", fontSize: 14, padding: 24, marginBottom: 16 }}>
-              {serverOnline ? "You haven't joined or created any contests yet." : "⚠️ Can't load contests — server offline."}
-            </div>
-          )}
+          {contests.length === 0 && <div style={{ ...S.cardDark, textAlign: "center", color: "#888780", fontSize: 14, padding: 24, marginBottom: 16 }}>{serverOnline ? "You haven't joined or created any contests yet." : "⚠️ Can't load contests — server offline."}</div>}
           {contests.map(c => {
-            const myEntry   = c.participants.find(p => p.username === username);
-            const totalPot  = c.entryFee * c.participants.length;
-            const pct       = Math.round((c.participants.length / c.maxPlayers) * 100);
+            const myEntry = c.participants.find(p => p.username === username);
+            const totalPot = c.entryFee * c.participants.length;
+            const pct = Math.round((c.participants.length / c.maxPlayers) * 100);
             const isCreator = c.createdBy === username;
-            const isF11     = isF11Contest(c) || c.mode === "fantasy11";
+            const isF11 = isF11Contest(c) || c.mode === "fantasy11";
             const matchStarted = isMatchStarted(c);
-            const displayStatus =
-              (c.status === "open" || c.status === "locked") && matchStarted
-                ? "live"
-                : c.status;
-
-            // ── FIX: correct contest result labels ────────────────────────────
+            const displayStatus = (c.status === "open" || c.status === "locked") && matchStarted ? "live" : c.status;
+            // ── FIX APPLIED: isSolo now checked first ──
             const contestResult = c.status === "settled" ? getContestResult(c, username) : null;
-            const winnerCount   = contestResult === "won"
-              ? (c.winner || "").split(", ").filter(Boolean).length
-              : 1;
+            const winnerCount = contestResult === "won" ? (c.winner || "").split(", ").filter(Boolean).length : 1;
             const myPrize = Math.floor(totalPot / Math.max(winnerCount, 1));
-
             return (
               <div key={c._id} style={S.card}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
@@ -1106,101 +893,52 @@ export default function Multiplayer({ username, points, setPoints }) {
                   </div>
                   <div style={{ textAlign: "right" }}>{statusBadge(displayStatus)}</div>
                 </div>
-
-                {isF11 && (
-                  <div style={{ background: "#ffd16610", border: "1px solid #ffd16633", borderRadius: 8, padding: "8px 12px", marginBottom: 8, fontSize: 12, color: "#8a6a00" }}>
-                    🏏 Fantasy 11 contest — build your squad in the Fantasy 11 tab for <b>{c.matchLabel}</b>. Highest points wins.
-                  </div>
-                )}
-
+                {isF11 && <div style={{ background: "#ffd16610", border: "1px solid #ffd16633", borderRadius: 8, padding: "8px 12px", marginBottom: 8, fontSize: 12, color: "#8a6a00" }}>🏏 Fantasy 11 contest — build your squad in the Fantasy 11 tab for <b>{c.matchLabel}</b>. Highest points wins.</div>}
                 <div style={S.pointsRow}>
                   <PointsInfoBox icon="🎟️" label="Entry Fee" value={`${c.entryFee} pts`} color="#BA7517" />
                   <PointsInfoBox icon="💰" label="Total Pot" value={`${totalPot} pts`} color="#7F77DD" />
                   <PointsInfoBox icon="🏆" label="Max Prize" value={`${totalPot} pts`} color="#1D9E75" />
                 </div>
-
                 <div style={{ fontSize: 12, color: "#444441", marginBottom: 4 }}>👥 {c.participants.length}/{c.maxPlayers} players</div>
                 <div style={S.progressBar()}><div style={S.progressFill(pct)} /></div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
-                  {c.participants.map(p => (
-                    <span key={p.username} style={{ fontSize: 11, padding: "3px 10px", borderRadius: 99, background: p.username === username ? "#EEEDFE" : "#F1EFE8", color: p.username === username ? "#3C3489" : "#444441", fontWeight: p.username === username ? 600 : 400 }}>
-                      {p.username}{!isF11 && p.team && p.team !== "fantasy11" ? `: ${p.team}` : ""}
-                    </span>
-                  ))}
+                  {c.participants.map(p => <span key={p.username} style={{ fontSize: 11, padding: "3px 10px", borderRadius: 99, background: p.username === username ? "#EEEDFE" : "#F1EFE8", color: p.username === username ? "#3C3489" : "#444441", fontWeight: p.username === username ? 600 : 400 }}>{p.username}{!isF11 && p.team && p.team !== "fantasy11" ? `: ${p.team}` : ""}</span>)}
                 </div>
-
-                {myEntry && !isF11 && myEntry.team && myEntry.team !== "fantasy11" && (
-                  <div style={{ fontSize: 12, color: "#1D9E75", marginTop: 8 }}>✅ You picked <strong>{myEntry.team}</strong></div>
-                )}
-
-                {(c.status === "open" || c.status === "locked") && (
-                  <div style={S.autoSettleNotice}>⏳ Auto-settling after match ends via Cricket API</div>
-                )}
-
+                {myEntry && !isF11 && myEntry.team && myEntry.team !== "fantasy11" && <div style={{ fontSize: 12, color: "#1D9E75", marginTop: 8 }}>✅ You picked <strong>{myEntry.team}</strong></div>}
+                {(c.status === "open" || c.status === "locked") && <div style={S.autoSettleNotice}>⏳ Auto-settling after match ends via Cricket API</div>}
                 {isCreator && (c.status === "open" || c.status === "locked") && (
                   <div style={{ marginTop: 8 }}>
-                    {matchStarted ? (
-                      <>
-                        <button style={S.btnDisabled} disabled>🔒 Cancel Contest</button>
-                        <div style={S.matchStartedWarn}>⚠️ Match has started — cancellation is no longer available</div>
-                      </>
-                    ) : (
-                      <button style={S.btn("#E24B4A")} onClick={() => handleCancelContest(c._id)} disabled={loading}>
-                        Cancel Contest
-                      </button>
-                    )}
+                    {matchStarted ? (<><button style={S.btnDisabled} disabled>🔒 Cancel Contest</button><div style={S.matchStartedWarn}>⚠️ Match has started — cancellation is no longer available</div></>) : <button style={S.btn("#E24B4A")} onClick={() => handleCancelContest(c._id)} disabled={loading}>Cancel Contest</button>}
                   </div>
                 )}
-
-                {/* ── FIX: Correct result display for all contest outcomes ── */}
                 {contestResult === "refund" && (
                   <div style={{ fontSize: 13, fontWeight: 600, marginTop: 8, padding: "10px 14px", borderRadius: 8, background: "#E6F1FB", color: "#185FA5" }}>
-                    🔄 Entry refunded — {c.winningTeam === "no_scores"
-                      ? "fantasy points were not available for this match"
-                      : c.participants.length === 1
-                        ? "no other players joined this contest"
-                        : "no winner could be determined"}
+                    🔄 Entry refunded — {c.winningTeam === "no_scores" ? "fantasy points were not available for this match" : c.participants.length === 1 ? "no other players joined this contest" : "no winner could be determined"}
                   </div>
                 )}
-                {contestResult === "won" && (
-                  <div style={{ fontSize: 13, fontWeight: 600, marginTop: 8, padding: "10px 14px", borderRadius: 8, background: "#E1F5EE", color: "#0F6E56" }}>
-                    🏆 You won! {isF11 ? `Highest fantasy points` : `Team ${c.winningTeam} won`} · Prize: {myPrize} pts
-                  </div>
-                )}
-                {contestResult === "lost" && (
-                  <div style={{ fontSize: 13, fontWeight: 600, marginTop: 8, padding: "10px 14px", borderRadius: 8, background: "#FCEBEB", color: "#993C1D" }}>
-                    😢 {isF11 ? "Better fantasy score" : `${c.winningTeam}`} won · Winner(s): {c.winner}
-                  </div>
-                )}
+                {contestResult === "won" && <div style={{ fontSize: 13, fontWeight: 600, marginTop: 8, padding: "10px 14px", borderRadius: 8, background: "#E1F5EE", color: "#0F6E56" }}>🏆 You won! {isF11 ? "Highest fantasy points" : `Team ${c.winningTeam} won`} · Prize: {myPrize} pts</div>}
+                {contestResult === "lost" && <div style={{ fontSize: 13, fontWeight: 600, marginTop: 8, padding: "10px 14px", borderRadius: 8, background: "#FCEBEB", color: "#993C1D" }}>😢 {isF11 ? "Better fantasy score" : `${c.winningTeam}`} won · Winner(s): {c.winner}</div>}
               </div>
             );
           })}
 
           <div style={{ fontSize: 13, fontWeight: 600, color: "#444441", margin: "20px 0 6px" }}>All Contests — Join Now</div>
           <div style={{ fontSize: 12, color: "#888780", marginBottom: 12 }}>🌐 Public · 🔒 Private (password required) · 🏏 Fantasy 11 (build squad after joining)</div>
-          {openContests.filter(c => !c.participants.find(p => p.username === username)).length === 0 && (
-            <div style={{ ...S.cardDark, textAlign: "center", color: "#888780", fontSize: 14, padding: 24 }}>
-              {serverOnline ? "No contests to join right now." : "⚠️ Server offline — can't load contests."}
-            </div>
-          )}
+          {openContests.filter(c => !c.participants.find(p => p.username === username)).length === 0 && <div style={{ ...S.cardDark, textAlign: "center", color: "#888780", fontSize: 14, padding: 24 }}>{serverOnline ? "No contests to join right now." : "⚠️ Server offline — can't load contests."}</div>}
           {openContests.filter(c => !c.participants.find(p => p.username === username)).map(c => {
-            const totalPot  = c.entryFee * c.participants.length;
-            const pct       = Math.round((c.participants.length / c.maxPlayers) * 100);
+            const totalPot = c.entryFee * c.participants.length;
+            const pct = Math.round((c.participants.length / c.maxPlayers) * 100);
             const matchTeams = getContestTeams(c);
-            const maxPrize  = c.entryFee * c.maxPlayers;
+            const maxPrize = c.entryFee * c.maxPlayers;
             const isPrivate = c.visibility === "private";
-            const isF11     = c.mode === "fantasy11" || (c.participants.length > 0 && c.participants[0]?.team === "fantasy11");
-
+            const isF11 = c.mode === "fantasy11" || (c.participants.length > 0 && c.participants[0]?.team === "fantasy11");
             return (
               <div key={c._id} style={{ ...S.card, borderColor: isPrivate ? "#AFA9EC" : "#d3d1c7" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                   <div>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                       <span style={{ fontWeight: 600, fontSize: 15 }}>{c.name}</span>
-                      {isPrivate
-                        ? <span style={S.privateBadge}>🔒 Private — password required</span>
-                        : <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 99, background: "#E1F5EE", color: "#0F6E56", border: "0.5px solid #5DCAA5" }}>🌐 Public</span>
-                      }
+                      {isPrivate ? <span style={S.privateBadge}>🔒 Private — password required</span> : <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 99, background: "#E1F5EE", color: "#0F6E56", border: "0.5px solid #5DCAA5" }}>🌐 Public</span>}
                       {isF11 && <span style={S.f11badge}>🏏 Fantasy 11</span>}
                     </div>
                     <div style={{ fontSize: 12, color: "#888780", marginTop: 2 }}>🏏 {c.matchLabel}</div>
@@ -1208,43 +946,20 @@ export default function Multiplayer({ username, points, setPoints }) {
                   </div>
                   <div style={{ textAlign: "right" }}>{statusBadge(c.status)}</div>
                 </div>
-
-                {isF11 && (
-                  <div style={{ background: "#ffd16610", border: "1px solid #ffd16633", borderRadius: 8, padding: "8px 12px", marginBottom: 8, fontSize: 12, color: "#8a6a00" }}>
-                    🏏 Fantasy 11 mode — after joining, build your squad for <b>{c.matchLabel}</b> in the Fantasy 11 tab. Highest points wins the pot.
-                  </div>
-                )}
-
+                {isF11 && <div style={{ background: "#ffd16610", border: "1px solid #ffd16633", borderRadius: 8, padding: "8px 12px", marginBottom: 8, fontSize: 12, color: "#8a6a00" }}>🏏 Fantasy 11 mode — after joining, build your squad for <b>{c.matchLabel}</b> in the Fantasy 11 tab. Highest points wins the pot.</div>}
                 <div style={S.pointsRow}>
                   <PointsInfoBox icon="🎟️" label="Entry Fee" value={`${c.entryFee} pts`} color="#BA7517" />
                   <PointsInfoBox icon="💰" label="Pot So Far" value={`${totalPot} pts`} color="#7F77DD" />
                   <PointsInfoBox icon="🏆" label="Max Prize" value={`${maxPrize} pts`} color="#1D9E75" />
                 </div>
-
                 <div style={{ fontSize: 12, color: "#444441", marginBottom: 4 }}>👥 {c.participants.length}/{c.maxPlayers} players</div>
                 <div style={S.progressBar()}><div style={S.progressFill(pct)} /></div>
-
                 {joiningContest === c._id ? (
                   <div style={{ marginTop: 12 }}>
-                    {!isF11 && (
-                      <>
-                        <div style={S.label}>Pick your team</div>
-                        <div style={S.pillRow}>
-                          {matchTeams.map(t => (
-                            <button key={t} style={S.pill(joinTeam === t)} onClick={() => setJoinTeam(t)}>{t}</button>
-                          ))}
-                        </div>
-                      </>
-                    )}
-                    {isF11 && (
-                      <div style={{ fontSize: 12, color: "#7d8590", marginBottom: 12 }}>
-                        You'll build your Fantasy 11 squad after joining. Click confirm to pay the entry fee.
-                      </div>
-                    )}
+                    {!isF11 && (<><div style={S.label}>Pick your team</div><div style={S.pillRow}>{matchTeams.map(t => <button key={t} style={S.pill(joinTeam === t)} onClick={() => setJoinTeam(t)}>{t}</button>)}</div></>)}
+                    {isF11 && <div style={{ fontSize: 12, color: "#7d8590", marginBottom: 12 }}>You'll build your Fantasy 11 squad after joining. Click confirm to pay the entry fee.</div>}
                     <div style={S.row}>
-                      <button style={S.btn("#1D9E75")} onClick={() => handleJoinContest(c._id, null, isF11 ? "fantasy11" : joinTeam)} disabled={loading || (!isF11 && !joinTeam)}>
-                        {loading ? "Joining..." : `Confirm — Pay ${c.entryFee} pts ✓`}
-                      </button>
+                      <button style={S.btn("#1D9E75")} onClick={() => handleJoinContest(c._id, null, isF11 ? "fantasy11" : joinTeam)} disabled={loading || (!isF11 && !joinTeam)}>{loading ? "Joining..." : `Confirm — Pay ${c.entryFee} pts ✓`}</button>
                       <button style={S.btnGhost} onClick={() => { setJoiningContest(null); setJoinTeam(null); }}>Cancel</button>
                     </div>
                   </div>
@@ -1259,69 +974,31 @@ export default function Multiplayer({ username, points, setPoints }) {
         </div>
       )}
 
-      {/* ── Create Contest ── */}
       {view === "createContest" && (
         <div style={S.card}>
           <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 16 }}>🏆 Create a Contest</div>
-
           <ModePicker value={contestMode} onChange={(m) => { setContestMode(m); setCMyTeam(null); }} />
-
           <div style={S.label}>Contest name</div>
           <input style={S.input} placeholder="e.g. MI vs KKR Fantasy Showdown" value={contestName} onChange={e => setContestName(e.target.value)} />
-
           <div style={S.label}>Visibility</div>
           <PrivacyToggle value={cVisibility} onChange={(v) => { setCVisibility(v); setCPassword(""); }} />
-
           {cVisibility === "private" && <PasswordField value={cPassword} onChange={setCPassword} label="Contest password" />}
-
           <div style={S.label}>Sport</div>
-          <div style={S.pillRow}>
-            {SPORTS.map(s => (
-              <button key={s.id} style={S.pill(cSport?.id === s.id)} onClick={() => { setCsport(s); setCMyTeam(null); setCIplMatch(null); setCMatchLabel(""); }}>
-                {s.emoji} {s.name}
-              </button>
-            ))}
-          </div>
-
-          {cSport?.id === "cricket" && (
-            <>
-              <div style={S.label}>🏏 Pick an IPL 2026 Match</div>
-              <IPLMatchPicker selectedMatch={cIPLMatch} onSelect={(match) => handleIPLMatchSelect(match, setCIplMatch, setCMatchLabel, setCMyTeam)} />
-            </>
-          )}
-
+          <div style={S.pillRow}>{SPORTS.map(s => <button key={s.id} style={S.pill(cSport?.id === s.id)} onClick={() => { setCsport(s); setCMyTeam(null); setCIplMatch(null); setCMatchLabel(""); }}>{s.emoji} {s.name}</button>)}</div>
+          {cSport?.id === "cricket" && (<><div style={S.label}>🏏 Pick an IPL 2026 Match</div><IPLMatchPicker selectedMatch={cIPLMatch} onSelect={(match) => handleIPLMatchSelect(match, setCIplMatch, setCMatchLabel, setCMyTeam)} /></>)}
           {contestMode === "fantasy11" && cIPLMatch ? (
             <Fantasy11Banner matchId={cIPLMatch.id} matchLabel={cMatchLabel} teams={[cIPLMatch.team1, cIPLMatch.team2]} />
           ) : contestMode === "bet" && cSport && (
-            <>
-              <div style={S.label}>Pick your team</div>
-              <div style={S.pillRow}>
-                {getTeamsFor(cSport, cIPLMatch).map(t => (
-                  <button key={t} style={S.pill(cMyTeam === t)} onClick={() => setCMyTeam(t)}>{t}</button>
-                ))}
-              </div>
-            </>
+            <><div style={S.label}>Pick your team</div><div style={S.pillRow}>{getTeamsFor(cSport, cIPLMatch).map(t => <button key={t} style={S.pill(cMyTeam === t)} onClick={() => setCMyTeam(t)}>{t}</button>)}</div></>
           )}
-
           <div style={S.label}>Match label</div>
           <input style={S.input} placeholder="e.g. MI vs KKR — IPL 2026" value={cMatchLabel} onChange={e => setCMatchLabel(e.target.value)} />
-
           <div style={S.label}>Entry fee per player (your points: {points.toLocaleString()})</div>
-          <div style={S.pillRow}>
-            {[25, 50, 100, 250].map(amt => (
-              <button key={amt} style={S.pill(parseInt(cEntryFee) === amt)} onClick={() => setCEntryFee(String(Math.min(amt, points)))}>{amt}</button>
-            ))}
-          </div>
+          <div style={S.pillRow}>{[25, 50, 100, 250].map(amt => <button key={amt} style={S.pill(parseInt(cEntryFee) === amt)} onClick={() => setCEntryFee(String(Math.min(amt, points)))}>{amt}</button>)}</div>
           <input style={S.input} type="number" placeholder="Or enter custom fee..." value={cEntryFee} onChange={e => setCEntryFee(e.target.value)} max={points} />
-
           <div style={S.label}>Max players (2 – 12)</div>
-          <div style={S.pillRow}>
-            {[2, 4, 6, 8, 10, 12].map(n => (
-              <button key={n} style={S.pill(parseInt(cMaxPlayers) === n)} onClick={() => setCMaxPlayers(String(n))}>{n}</button>
-            ))}
-          </div>
+          <div style={S.pillRow}>{[2, 4, 6, 8, 10, 12].map(n => <button key={n} style={S.pill(parseInt(cMaxPlayers) === n)} onClick={() => setCMaxPlayers(String(n))}>{n}</button>)}</div>
           <input style={S.input} type="number" placeholder="Custom (2–12)" value={cMaxPlayers} min={2} max={12} onChange={e => setCMaxPlayers(e.target.value)} />
-
           {cEntryFee && cMaxPlayers && parseInt(cEntryFee) > 0 && (
             <div style={S.pointsRow}>
               <PointsInfoBox icon="🎟️" label="Your Entry" value={`${parseInt(cEntryFee)} pts`} color="#BA7517" />
@@ -1329,7 +1006,6 @@ export default function Multiplayer({ username, points, setPoints }) {
               <PointsInfoBox icon="🏆" label="Max Prize" value={`${(parseInt(cEntryFee) || 0) * (parseInt(cMaxPlayers) || 0)} pts`} color="#1D9E75" />
             </div>
           )}
-
           <div style={S.row}>
             <button style={S.btn(contestMode === "fantasy11" ? "#ffd166" : "#7F77DD")} onClick={handleCreateContest} disabled={loading}>
               {loading ? "Creating..." : contestMode === "fantasy11" ? "🏏 Create Fantasy 11 Contest" : cVisibility === "private" ? "Create Private Contest 🔒" : "Create Contest 🏆"}
