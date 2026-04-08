@@ -34,7 +34,9 @@ const betSchema = new mongoose.Schema({
   team: String,
   amount: Number,
   odds: { type: Number, default: 2.0 },
-  status: { type: String, enum: ["pending", "won", "lost"], default: "pending" },
+  status: { type: String, enum: ["pending", "won", "lost", "refunded"], default: "pending" },
+  result: { type: String, default: null },
+  pointsAwarded: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now },
 });
 
@@ -600,6 +602,10 @@ app.post("/admin/fix-bet", async (req, res) => {
         if (!user) continue;
         user.points += bet.amount;
         await user.save();
+        bet.status = "refunded";
+        bet.result = "refunded";
+        bet.pointsAwarded = 0;
+        await bet.save();
         fixed++;
         console.log(`Refunded ${bet.amount} pts to ${bet.username} for abandoned match ${matchId}`);
       }
@@ -703,7 +709,9 @@ app.post("/admin/settle-all", async (req, res) => {
         user.points += bet.amount;
         user.lockedPoints = Math.max(0, (user.lockedPoints || 0) - bet.amount);
         await user.save();
-        bet.status = "lost"; // mark as lost since there's no "refunded" enum; points are returned above
+        bet.status = "refunded";
+        bet.result = "refunded";
+        bet.pointsAwarded = 0;
         await bet.save();
         betsSettled++;
       }
@@ -724,7 +732,7 @@ app.post("/admin/settle-all", async (req, res) => {
       const relatedContests = await Contest.find({ status: { $in: ["open", "locked"] }, team1: iplMatch.team1, team2: iplMatch.team2 });
       for (const contest of relatedContests) {
         const winnerTeam = winner === "no_result"
-          ? "no_result"  // settleContest winners.length === 0 → refund path
+          ? "no_result"
           : winner.toLowerCase().includes(iplMatch.team1.toLowerCase()) ? iplMatch.team1 : iplMatch.team2;
         const totalPot = contest.entryFee * contest.participants.length;
         await settleContest(contest, winnerTeam, totalPot);
@@ -766,7 +774,8 @@ app.post("/admin/settle-all", async (req, res) => {
     });
   } catch (err) { console.error("admin/settle-all error:", err.message); res.status(500).json({ message: err.message }); }
 });
-    app.post("/admin/credit-points", async (req, res) => {
+
+app.post("/admin/credit-points", async (req, res) => {
   try {
     const { username, points, reason } = req.body;
     const user = await User.findOne({ name: username });
@@ -870,7 +879,6 @@ app.post("/contest/create", async (req, res) => {
     user.points -= entryFee; await user.save();
     const contest = new Contest({
       name, createdBy, sport,
-      // Change 1 — Fix 2: normalize matchId format
       matchId: matchId
         ? (matchId.startsWith("ipl-") ? matchId : `ipl-${matchId.replace(/^ipl/, "")}`)
         : "manual",
@@ -918,7 +926,6 @@ app.post("/contest/join", async (req, res) => {
         _id: contest._id,
         status: "open",
         $expr: { $lt: [{ $size: "$participants" }, "$maxPlayers"] },
-        // Change 3 — Fix 5: exact string match (no regex) to prevent duplicate joins
         participants: {
           $not: {
             $elemMatch: { username: username },
