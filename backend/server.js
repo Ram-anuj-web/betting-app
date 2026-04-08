@@ -591,6 +591,22 @@ app.post("/admin/fix-bet", async (req, res) => {
 
     const bets = await Bet.find({ matchId });
     let fixed = 0;
+
+    // ── no_result: refund all lost bets (stake only) ──────────────────────────
+    if (winner === "no_result") {
+      for (const bet of bets) {
+        if (bet.status === "pending") continue; // settle-all handles pending
+        const user = await User.findOne({ name: bet.username });
+        if (!user) continue;
+        user.points += bet.amount;
+        await user.save();
+        fixed++;
+        console.log(`Refunded ${bet.amount} pts to ${bet.username} for abandoned match ${matchId}`);
+      }
+      return res.json({ message: `Refunded ${fixed} bet(s) for abandoned match ${matchId}.`, fixed, contestsFixed: 0 });
+    }
+
+    // ── normal fix: correct wrong winner ─────────────────────────────────────
     for (const bet of bets) {
       const user = await User.findOne({ name: bet.username });
       if (!user) continue;
@@ -622,25 +638,14 @@ app.post("/admin/fix-bet", async (req, res) => {
     let contestsFixed = 0;
     if (matchId.startsWith("ipl-")) {
       const iplMatch = IPL_MATCHES.find(m => m.id === matchId);
-
       if (iplMatch) {
-        const correctWinningTeam = winner.toLowerCase().includes(iplMatch.team1.toLowerCase())
-          ? iplMatch.team1
-          : iplMatch.team2;
-
-        const settledContests = await Contest.find({
-          status: "settled",
-          team1: iplMatch.team1,
-          team2: iplMatch.team2,
-        });
-
+        const correctWinningTeam = winner.toLowerCase().includes(iplMatch.team1.toLowerCase()) ? iplMatch.team1 : iplMatch.team2;
+        const settledContests = await Contest.find({ status: "settled", team1: iplMatch.team1, team2: iplMatch.team2 });
         for (const contest of settledContests) {
           if (contest.winningTeam === correctWinningTeam) continue;
-
           const totalPot = contest.entryFee * contest.participants.length;
           const wrongWinners   = contest.participants.filter(p => p.team === contest.winningTeam);
           const correctWinners = contest.participants.filter(p => p.team === correctWinningTeam);
-
           if (wrongWinners.length > 0) {
             const wrongPrize = Math.floor(totalPot / wrongWinners.length);
             for (const p of wrongWinners) {
@@ -649,32 +654,22 @@ app.post("/admin/fix-bet", async (req, res) => {
               const clawback = Math.min(u.points, wrongPrize);
               u.points -= clawback;
               const debt = wrongPrize - clawback;
-              if (debt > 0) {
-                console.warn(`Contest fix: ${p.username} short by ${debt} pts (already spent prize) in contest ${contest._id}`);
-              }
+              if (debt > 0) console.warn(`Contest fix: ${p.username} short by ${debt} pts in contest ${contest._id}`);
               await u.save();
             }
           }
-
           if (correctWinners.length === 0) {
-            for (const p of contest.participants) {
-              const u = await User.findOne({ name: p.username });
-              if (u) { u.points += contest.entryFee; await u.save(); }
-            }
+            for (const p of contest.participants) { const u = await User.findOne({ name: p.username }); if (u) { u.points += contest.entryFee; await u.save(); } }
             contest.winner = "refund";
           } else {
-            const prize     = Math.floor(totalPot / correctWinners.length);
+            const prize = Math.floor(totalPot / correctWinners.length);
             const remainder = totalPot - prize * correctWinners.length;
             for (let i = 0; i < correctWinners.length; i++) {
               const u = await User.findOne({ name: correctWinners[i].username });
-              if (u) {
-                u.points += prize + (i === 0 ? remainder : 0);
-                await u.save();
-              }
+              if (u) { u.points += prize + (i === 0 ? remainder : 0); await u.save(); }
             }
             contest.winner = correctWinners.map(w => w.username).join(", ");
           }
-
           contest.winningTeam = correctWinningTeam;
           await contest.save();
           contestsFixed++;
@@ -683,18 +678,12 @@ app.post("/admin/fix-bet", async (req, res) => {
       }
     }
 
-    res.json({
-      message: `Fixed ${fixed} bet(s) and ${contestsFixed} contest(s) for ${matchId}.`,
-      winner,
-      fixed,
-      contestsFixed,
-    });
+    res.json({ message: `Fixed ${fixed} bet(s) and ${contestsFixed} contest(s) for ${matchId}.`, winner, fixed, contestsFixed });
   } catch (err) {
     console.error("admin/fix-bet error:", err.message);
     res.status(500).json({ message: err.message });
   }
 });
-
 // ─── Admin: Fix Fantasy11 double ipl- prefix in matchId ──────────────────────
 app.post("/admin/settle-all", async (req, res) => {
   try {
@@ -770,13 +759,24 @@ app.post("/admin/settle-all", async (req, res) => {
       }
       challengesSettled++;
     }
-
     res.json({ 
       message: `✅ All settled for ${matchId}! Bets: ${betsSettled}, Contests: ${contestsSettled}, Challenges: ${challengesSettled}`, 
       winner, betsSettled, contestsSettled, challengesSettled, 
       nextStep: `⚠️ Run fantasy11-settle/auto/${matchId} next with Cricbuzz ID!` 
     });
   } catch (err) { console.error("admin/settle-all error:", err.message); res.status(500).json({ message: err.message }); }
+});
+    app.post("/admin/credit-points", async (req, res) => {
+  try {
+    const { username, points, reason } = req.body;
+    const user = await User.findOne({ name: username });
+    if (!user) return res.status(404).json({ message: "User not found" });
+    user.points += points;
+    await user.save();
+    res.json({ message: `✅ Credited ${points} pts to ${username}. Reason: ${reason}`, newPoints: user.points });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 });
 
 // ─── Challenge Routes ─────────────────────────────────────────────────────────
