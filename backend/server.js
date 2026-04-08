@@ -696,30 +696,6 @@ app.post("/admin/fix-bet", async (req, res) => {
 });
 
 // ─── Admin: Fix Fantasy11 double ipl- prefix in matchId ──────────────────────
-app.post("/admin/fix-fantasy11-matchid", async (req, res) => {
-  try {
-    const Fantasy11Team = mongoose.models.Fantasy11Team;
-    if (!Fantasy11Team) return res.status(500).json({ message: "Fantasy11Team model not found" });
-    const result6 = await Fantasy11Team.updateMany(
-      { matchId: "ipl-ipl-6" },
-      { $set: { matchId: "ipl-6" } }
-    );
-    const result7 = await Fantasy11Team.updateMany(
-      { matchId: "ipl-ipl-7" },
-      { $set: { matchId: "ipl-7" } }
-    );
-    res.json({
-      message: "✅ matchId fix complete!",
-      fixed6: result6.modifiedCount,
-      fixed7: result7.modifiedCount,
-    });
-  } catch (err) {
-    console.error("fix-fantasy11-matchid error:", err.message);
-    res.status(500).json({ message: err.message });
-  }
-});
-
-// ─── Admin: Settle All ────────────────────────────────────────────────────────
 app.post("/admin/settle-all", async (req, res) => {
   try {
     const { matchId, winner } = req.body;
@@ -729,13 +705,28 @@ app.post("/admin/settle-all", async (req, res) => {
     // 1. Settle Bets
     const pendingBets = await Bet.find({ matchId, status: "pending" });
     let betsSettled = 0;
-    for (const bet of pendingBets) {
-      const user = await User.findOne({ name: bet.username });
-      if (!user) continue;
-      const won = winner.toLowerCase().includes(bet.team.toLowerCase());
-      if (won) { const multiplier = bet.odds && bet.odds > 1 ? bet.odds : 2.0; user.points += Math.floor(bet.amount * multiplier); }
-      user.lockedPoints = Math.max(0, (user.lockedPoints || 0) - bet.amount);
-      await user.save(); bet.status = won ? "won" : "lost"; await bet.save(); betsSettled++;
+
+    if (winner === "no_result") {
+      // Refund all bets
+      for (const bet of pendingBets) {
+        const user = await User.findOne({ name: bet.username });
+        if (!user) continue;
+        user.points += bet.amount;
+        user.lockedPoints = Math.max(0, (user.lockedPoints || 0) - bet.amount);
+        await user.save();
+        bet.status = "lost"; // mark as lost since there's no "refunded" enum; points are returned above
+        await bet.save();
+        betsSettled++;
+      }
+    } else {
+      for (const bet of pendingBets) {
+        const user = await User.findOne({ name: bet.username });
+        if (!user) continue;
+        const won = winner.toLowerCase().includes(bet.team.toLowerCase());
+        if (won) { const multiplier = bet.odds && bet.odds > 1 ? bet.odds : 2.0; user.points += Math.floor(bet.amount * multiplier); }
+        user.lockedPoints = Math.max(0, (user.lockedPoints || 0) - bet.amount);
+        await user.save(); bet.status = won ? "won" : "lost"; await bet.save(); betsSettled++;
+      }
     }
 
     // 2. Settle Contests
@@ -743,7 +734,9 @@ app.post("/admin/settle-all", async (req, res) => {
     if (iplMatch) {
       const relatedContests = await Contest.find({ status: { $in: ["open", "locked"] }, team1: iplMatch.team1, team2: iplMatch.team2 });
       for (const contest of relatedContests) {
-        const winnerTeam = winner.toLowerCase().includes(iplMatch.team1.toLowerCase()) ? iplMatch.team1 : iplMatch.team2;
+        const winnerTeam = winner === "no_result"
+          ? "no_result"  // settleContest winners.length === 0 → refund path
+          : winner.toLowerCase().includes(iplMatch.team1.toLowerCase()) ? iplMatch.team1 : iplMatch.team2;
         const totalPot = contest.entryFee * contest.participants.length;
         await settleContest(contest, winnerTeam, totalPot);
         contestsSettled++;
@@ -757,16 +750,32 @@ app.post("/admin/settle-all", async (req, res) => {
       const challengerUser = await User.findOne({ name: challenge.challenger });
       const opponentUser   = await User.findOne({ name: challenge.opponent });
       if (!challengerUser || !opponentUser) continue;
-      const totalPot = challenge.wager * 2;
-      let challengeWinner = null;
-      if (winner.toLowerCase().includes(challenge.challengerTeam.toLowerCase())) { challengerUser.points += totalPot; challengeWinner = challenge.challenger; await challengerUser.save(); }
-      else if (winner.toLowerCase().includes(challenge.opponentTeam.toLowerCase())) { opponentUser.points += totalPot; challengeWinner = challenge.opponent; await opponentUser.save(); }
-      else { challengerUser.points += challenge.wager; opponentUser.points += challenge.wager; challengeWinner = "draw"; await challengerUser.save(); await opponentUser.save(); }
-      challenge.winner = challengeWinner; challenge.status = "settled"; await challenge.save(); challengesSettled++;
+
+      if (winner === "no_result") {
+        // Refund both
+        challengerUser.points += challenge.wager;
+        opponentUser.points += challenge.wager;
+        await challengerUser.save();
+        await opponentUser.save();
+        challenge.winner = "no_result";
+        challenge.status = "settled";
+        await challenge.save();
+      } else {
+        const totalPot = challenge.wager * 2;
+        let challengeWinner = null;
+        if (winner.toLowerCase().includes(challenge.challengerTeam.toLowerCase())) { challengerUser.points += totalPot; challengeWinner = challenge.challenger; await challengerUser.save(); }
+        else if (winner.toLowerCase().includes(challenge.opponentTeam.toLowerCase())) { opponentUser.points += totalPot; challengeWinner = challenge.opponent; await opponentUser.save(); }
+        else { challengerUser.points += challenge.wager; opponentUser.points += challenge.wager; challengeWinner = "draw"; await challengerUser.save(); await opponentUser.save(); }
+        challenge.winner = challengeWinner; challenge.status = "settled"; await challenge.save();
+      }
+      challengesSettled++;
     }
 
-    // Change 2 — Fix 4: Add nextStep reminder to response
-    res.json({ message: `✅ All settled for ${matchId}! Bets: ${betsSettled}, Contests: ${contestsSettled}, Challenges: ${challengesSettled}`, winner, betsSettled, contestsSettled, challengesSettled, nextStep: `⚠️ Run fantasy11-settle/auto/${matchId} next with Cricbuzz ID!` });
+    res.json({ 
+      message: `✅ All settled for ${matchId}! Bets: ${betsSettled}, Contests: ${contestsSettled}, Challenges: ${challengesSettled}`, 
+      winner, betsSettled, contestsSettled, challengesSettled, 
+      nextStep: `⚠️ Run fantasy11-settle/auto/${matchId} next with Cricbuzz ID!` 
+    });
   } catch (err) { console.error("admin/settle-all error:", err.message); res.status(500).json({ message: err.message }); }
 });
 
