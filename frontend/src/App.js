@@ -160,7 +160,7 @@ function Fantasy11BreakdownModal({ item, username, onClose }) {
 
 function DetailModal({ item, onClose }) {
   const statusColor = (s) => ({
-    won: "#1D9E75", lost: "#E24B4A", draw: "#888780", refund: "#185FA5",
+    won: "#1D9E75", lost: "#E24B4A", draw: "#888780", refund: "#185FA5", refunded: "#185FA5",
     active: "#7F77DD", cancelled: "#888780", settled: "#3C3489",
   }[s] || "#BA7517");
 
@@ -194,12 +194,12 @@ function DetailModal({ item, onClose }) {
             display: "flex", justifyContent: "space-between", alignItems: "center",
           }}>
             <span style={{ fontWeight: 700, fontSize: 15, color: statusColor(item.status) }}>
-              {item.status === "won"       ? "🏆 Won!"
-               : item.status === "lost"   ? "😢 Lost"
-               : item.status === "draw"   ? "🤝 Draw"
-               : item.status === "refund" ? "🔄 Refunded"
-               : item.status === "active" ? "⚡ Active"
-               : item.status === "settled"? "✅ Settled"
+              {item.status === "won"                                   ? "🏆 Won!"
+               : item.status === "lost"                               ? "😢 Lost"
+               : item.status === "draw"                               ? "🤝 Draw"
+               : item.status === "refund" || item.status === "refunded" ? "🔄 Refunded"
+               : item.status === "active"                             ? "⚡ Active"
+               : item.status === "settled"                            ? "✅ Settled"
                : "⏳ Pending"}
             </span>
             <span style={{ fontSize: 12, color: "#888780" }}>{new Date(item.createdAt).toLocaleDateString()}</span>
@@ -216,7 +216,7 @@ function DetailModal({ item, onClose }) {
             item.status === "won" && item.type === "bet"       && { label: "Winnings", value: `${Math.floor(item.amount * (item.odds || 2))} pts`, highlight: true },
             item.status === "won" && item.type === "contest"   && { label: "Prize",    value: `${item.prize} pts`, highlight: true },
             item.status === "won" && item.type === "challenge" && { label: "Prize",    value: `${item.amount * 2} pts`, highlight: true },
-            item.status === "refund"  && { label: "Refund",     value: `${item.amount} pts returned`, highlight: true },
+            (item.status === "refund" || item.status === "refunded") && { label: "Refund", value: `${item.amount} pts returned`, highlight: true },
             item.detail && { label: "Info", value: item.detail },
           ].filter(Boolean).map((row, i) => (
             <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #f1efe8" }}>
@@ -319,7 +319,6 @@ export default function App() {
         const winnerStr = c.winner || "";
         const winners  = winnerStr ? winnerStr.split(", ").filter(Boolean) : [];
 
-        // ── FIX: detect refund cases ──────────────────────────────────────────
         const isRefund = winnerStr === "refund" || winnerStr === "no_scores" || winnerStr === "";
         const isSolo   = (c.participants?.length || 0) === 1 && c.participants?.[0]?.username === username;
 
@@ -469,12 +468,12 @@ export default function App() {
     setScreen("auth"); setAuthMode("login"); setPrefilledMatch(null); setMatchStatus(null);
   };
 
-  // ── FIX: Added "refund" to all status helpers ─────────────────────────────
   const statusColor = (s) => ({
     won:       "#1D9E75",
     lost:      "#E24B4A",
     draw:      "#888780",
-    refund:    "#185FA5",   // blue for refunded
+    refund:    "#185FA5",
+    refunded:  "#185FA5",
     active:    "#7F77DD",
     cancelled: "#888780",
     settled:   "#3C3489",
@@ -484,7 +483,8 @@ export default function App() {
     won:       "🏆",
     lost:      "😢",
     draw:      "🤝",
-    refund:    "🔄",        // refund emoji
+    refund:    "🔄",
+    refunded:  "🔄",
     active:    "⚡",
     cancelled: "❌",
     settled:   "✅",
@@ -494,13 +494,13 @@ export default function App() {
     won:       "WON",
     lost:      "LOST",
     draw:      "DRAW",
-    refund:    "REFUNDED",  // correct label
+    refund:    "REFUNDED",
+    refunded:  "REFUNDED",
     active:    "ACTIVE",
     cancelled: "CANCELLED",
     settled:   "SETTLED",
   }[s] || "PENDING");
 
-  // ── FIX: pointsDisplay handles "refund" status properly ──────────────────
   const pointsDisplay = (item) => {
     if (item.type === "fantasy11") {
       if (item.fantasyPoints !== null && item.fantasyPoints !== undefined) return `${item.fantasyPoints} pts scored`;
@@ -511,10 +511,10 @@ export default function App() {
       if (item.type === "contest")   return `+${item.prize - item.amount} pts profit`;
       if (item.type === "challenge") return `+${item.amount} pts profit`;
     }
-    if (item.status === "lost")      return `-${item.amount} pts`;
-    if (item.status === "draw")      return "refunded";
-    if (item.status === "refund")    return "↩️ refunded";   // FIX: was showing 🔒 X pts
-    if (item.status === "cancelled") return "refunded";
+    if (item.status === "lost")                                          return `-${item.amount} pts`;
+    if (item.status === "draw")                                          return "refunded";
+    if (item.status === "refund" || item.status === "refunded")         return "↩️ refunded";
+    if (item.status === "cancelled")                                     return "refunded";
     return `🔒 ${item.amount} pts`;
   };
 
