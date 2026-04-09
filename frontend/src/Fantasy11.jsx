@@ -1,20 +1,18 @@
 import React, { useState, useEffect } from "react";
+import PLAYERS_DATA, { getRoleColor, getRoleLabel } from "./PLAYERS_DATA";
 
 const API = "https://betting-backend-xq1q.onrender.com";
 
 const SQUADS = {
   CSK: [
-    // Batters
     { name: "Ruturaj Gaikwad",    role: "BAT", team: "CSK" },
     { name: "Ayush Mhatre",       role: "BAT", team: "CSK" },
     { name: "Kartik Sharma",      role: "BAT", team: "CSK" },
     { name: "Sarfaraz Khan",      role: "BAT", team: "CSK" },
     { name: "Aman Khan",          role: "BAT", team: "CSK" },
-    // Wicket-Keepers
     { name: "MS Dhoni",           role: "WK",  team: "CSK" },
     { name: "Sanju Samson",       role: "WK",  team: "CSK" },
     { name: "Urvil Patel",        role: "WK",  team: "CSK" },
-    // All-Rounders
     { name: "Dewald Brevis",      role: "AR",  team: "CSK" },
     { name: "Shivam Dube",        role: "AR",  team: "CSK" },
     { name: "Jamie Overton",      role: "AR",  team: "CSK" },
@@ -23,7 +21,6 @@ const SQUADS = {
     { name: "Prashant Veer",      role: "AR",  team: "CSK" },
     { name: "Shreyas Gopal",      role: "AR",  team: "CSK" },
     { name: "Zak Foulkes",        role: "AR",  team: "CSK" },
-    // Bowlers
     { name: "Khaleel Ahmed",      role: "BOWL", team: "CSK" },
     { name: "Noor Ahmad",         role: "BOWL", team: "CSK" },
     { name: "Anshul Kamboj",      role: "BOWL", team: "CSK" },
@@ -35,17 +32,14 @@ const SQUADS = {
     { name: "Spencer Johnson",    role: "BOWL", team: "CSK" },
   ],
   MI: [
-    // Batters
     { name: "Rohit Sharma",         role: "BAT", team: "MI" },
     { name: "Suryakumar Yadav",     role: "BAT", team: "MI" },
     { name: "Tilak Varma",          role: "BAT", team: "MI" },
     { name: "Sherfane Rutherford",  role: "BAT", team: "MI" },
     { name: "Danish Malewar",       role: "BAT", team: "MI" },
-    // Wicket-Keepers
     { name: "Ryan Rickelton",       role: "WK",  team: "MI" },
     { name: "Quinton de Kock",      role: "WK",  team: "MI" },
     { name: "Robin Minz",           role: "WK",  team: "MI" },
-    // All-Rounders
     { name: "Hardik Pandya",        role: "AR",  team: "MI" },
     { name: "Naman Dhir",           role: "AR",  team: "MI" },
     { name: "Mitchell Santner",     role: "AR",  team: "MI" },
@@ -55,7 +49,6 @@ const SQUADS = {
     { name: "Corbin Bosch",         role: "AR",  team: "MI" },
     { name: "Will Jacks",           role: "AR",  team: "MI" },
     { name: "Shardul Thakur",       role: "AR",  team: "MI" },
-    // Bowlers
     { name: "Jasprit Bumrah",       role: "BOWL", team: "MI" },
     { name: "Trent Boult",          role: "BOWL", team: "MI" },
     { name: "Deepak Chahar",        role: "BOWL", team: "MI" },
@@ -65,15 +58,12 @@ const SQUADS = {
     { name: "Raghu Sharma",         role: "BOWL", team: "MI" },
   ],
   RCB: [
-    // Batters
     { name: "Virat Kohli",        role: "BAT", team: "RCB" },
     { name: "Devdutt Padikkal",   role: "BAT", team: "RCB" },
     { name: "Rajat Patidar",      role: "BAT", team: "RCB" },
-    // Wicket-Keepers
     { name: "Phil Salt",          role: "WK",  team: "RCB" },
     { name: "Jitesh Sharma",      role: "WK",  team: "RCB" },
     { name: "Jordan Cox",         role: "WK",  team: "RCB" },
-    // All-Rounders
     { name: "Krunal Pandya",      role: "AR",  team: "RCB" },
     { name: "Tim David",          role: "AR",  team: "RCB" },
     { name: "Romario Shepherd",   role: "AR",  team: "RCB" },
@@ -84,7 +74,6 @@ const SQUADS = {
     { name: "Vicky Ostwal",       role: "AR",  team: "RCB" },
     { name: "Vihaan Malhotra",    role: "AR",  team: "RCB" },
     { name: "Kanishk Chouhan",    role: "AR",  team: "RCB" },
-    // Bowlers
     { name: "Josh Hazlewood",     role: "BOWL", team: "RCB" },
     { name: "Bhuvneshwar Kumar",  role: "BOWL", team: "RCB" },
     { name: "Yash Dayal",         role: "BOWL", team: "RCB" },
@@ -95,7 +84,6 @@ const SQUADS = {
     { name: "Abhinandan Singh",   role: "BOWL", team: "RCB" },
   ],
   KKR: [
-    // Batters
     { name: "Ajinkya Rahane",       role: "BAT", team: "KKR" },
     { name: "Angkrish Raghuvanshi", role: "BAT", team: "KKR" },
     { name: "Manish Pandey",        role: "BAT", team: "KKR" },
@@ -103,17 +91,14 @@ const SQUADS = {
     { name: "Rovman Powell",        role: "BAT", team: "KKR" },
     { name: "Rahul Tripathi",       role: "BAT", team: "KKR" },
     { name: "Cameron Green",        role: "BAT", team: "KKR" },
-    // Wicket-Keepers
     { name: "Finn Allen",           role: "WK",  team: "KKR" },
     { name: "Tim Seifert",          role: "WK",  team: "KKR" },
     { name: "Tejasvi Singh",        role: "WK",  team: "KKR" },
     { name: "Sarthak Ranjan",       role: "WK",  team: "KKR" },
-    // All-Rounders
     { name: "Rachin Ravindra",      role: "AR",  team: "KKR" },
     { name: "Ramandeep Singh",      role: "AR",  team: "KKR" },
     { name: "Anukul Roy",           role: "AR",  team: "KKR" },
     { name: "Daksh Kamra",          role: "AR",  team: "KKR" },
-    // Bowlers
     { name: "Varun Chakaravarthy",  role: "BOWL", team: "KKR" },
     { name: "Sunil Narine",         role: "BOWL", team: "KKR" },
     { name: "Matheesha Pathirana",  role: "BOWL", team: "KKR" },
@@ -125,15 +110,12 @@ const SQUADS = {
     { name: "Prashant Solanki",     role: "BOWL", team: "KKR" },
   ],
   SRH: [
-    // Batters
     { name: "Travis Head",             role: "BAT", team: "SRH" },
     { name: "Aniket Verma",            role: "BAT", team: "SRH" },
     { name: "Smaran Ravichandran",     role: "BAT", team: "SRH" },
-    // Wicket-Keepers
     { name: "Ishan Kishan",            role: "WK",  team: "SRH" },
     { name: "Heinrich Klaasen",        role: "WK",  team: "SRH" },
     { name: "Salil Arora",             role: "WK",  team: "SRH" },
-    // All-Rounders
     { name: "Pat Cummins",             role: "AR",  team: "SRH" },
     { name: "Abhishek Sharma",         role: "AR",  team: "SRH" },
     { name: "Nitish Kumar Reddy",      role: "AR",  team: "SRH" },
@@ -144,7 +126,6 @@ const SQUADS = {
     { name: "Brydon Carse",            role: "AR",  team: "SRH" },
     { name: "Shivang Kumar",           role: "AR",  team: "SRH" },
     { name: "Jack Edwards",            role: "AR",  team: "SRH" },
-    // Bowlers
     { name: "Eshan Malinga",           role: "BOWL", team: "SRH" },
     { name: "Zeeshan Ansari",          role: "BOWL", team: "SRH" },
     { name: "Jaydev Unadkat",          role: "BOWL", team: "SRH" },
@@ -155,28 +136,24 @@ const SQUADS = {
     { name: "Shivam Mavi",             role: "BOWL", team: "SRH" },
   ],
   DC: [
-    // Batters
-    { name: "KL Rahul",          role: "WK",  team: "DC" },  // wk-batter
-    { name: "Karun Nair",        role: "BAT", team: "DC" },
-    { name: "David Miller",      role: "BAT", team: "DC" },
-    { name: "Pathum Nissanka",   role: "BAT", team: "DC" },
-    { name: "Sahil Parakh",      role: "BAT", team: "DC" },
-    { name: "Prithvi Shaw",      role: "BAT", team: "DC" },
-    // Wicket-Keepers
-    { name: "Ben Duckett",       role: "WK",  team: "DC" },
-    { name: "Abishek Porel",     role: "WK",  team: "DC" },
-    { name: "Tristan Stubbs",    role: "WK",  team: "DC" },
-    // All-Rounders
-    { name: "Axar Patel",        role: "AR",  team: "DC" },
-    { name: "Sameer Rizvi",      role: "AR",  team: "DC" },
-    { name: "Ashutosh Sharma",   role: "AR",  team: "DC" },
-    { name: "Vipraj Nigam",      role: "AR",  team: "DC" },
-    { name: "Ajay Mandal",       role: "AR",  team: "DC" },
-    { name: "Tripurana Vijay",   role: "AR",  team: "DC" },
-    { name: "Madhav Tiwari",     role: "AR",  team: "DC" },
-    { name: "Nitish Rana",       role: "AR",  team: "DC" },
-    { name: "Auqib Dar",         role: "AR",  team: "DC" },
-    // Bowlers
+    { name: "KL Rahul",           role: "WK",  team: "DC" },
+    { name: "Karun Nair",         role: "BAT", team: "DC" },
+    { name: "David Miller",       role: "BAT", team: "DC" },
+    { name: "Pathum Nissanka",    role: "BAT", team: "DC" },
+    { name: "Sahil Parakh",       role: "BAT", team: "DC" },
+    { name: "Prithvi Shaw",       role: "BAT", team: "DC" },
+    { name: "Ben Duckett",        role: "WK",  team: "DC" },
+    { name: "Abishek Porel",      role: "WK",  team: "DC" },
+    { name: "Tristan Stubbs",     role: "WK",  team: "DC" },
+    { name: "Axar Patel",         role: "AR",  team: "DC" },
+    { name: "Sameer Rizvi",       role: "AR",  team: "DC" },
+    { name: "Ashutosh Sharma",    role: "AR",  team: "DC" },
+    { name: "Vipraj Nigam",       role: "AR",  team: "DC" },
+    { name: "Ajay Mandal",        role: "AR",  team: "DC" },
+    { name: "Tripurana Vijay",    role: "AR",  team: "DC" },
+    { name: "Madhav Tiwari",      role: "AR",  team: "DC" },
+    { name: "Nitish Rana",        role: "AR",  team: "DC" },
+    { name: "Auqib Dar",          role: "AR",  team: "DC" },
     { name: "Mitchell Starc",     role: "BOWL", team: "DC" },
     { name: "Kuldeep Yadav",      role: "BOWL", team: "DC" },
     { name: "T Natarajan",        role: "BOWL", team: "DC" },
@@ -186,24 +163,20 @@ const SQUADS = {
     { name: "Kyle Jamieson",      role: "BOWL", team: "DC" },
   ],
   LSG: [
-    // Batters
     { name: "Aiden Markram",        role: "BAT", team: "LSG" },
     { name: "Himmat Singh",         role: "BAT", team: "LSG" },
     { name: "Matthew Breetzke",     role: "BAT", team: "LSG" },
     { name: "Akshat Raghuwanshi",   role: "BAT", team: "LSG" },
-    // Wicket-Keepers
     { name: "Rishabh Pant",         role: "WK",  team: "LSG" },
     { name: "Nicholas Pooran",      role: "WK",  team: "LSG" },
     { name: "Josh Inglis",          role: "WK",  team: "LSG" },
     { name: "Mukul Choudhary",      role: "WK",  team: "LSG" },
-    // All-Rounders
     { name: "Mitchell Marsh",       role: "AR",  team: "LSG" },
     { name: "Abdul Samad",          role: "AR",  team: "LSG" },
     { name: "Shahbaz Ahmed",        role: "AR",  team: "LSG" },
     { name: "Arshin Kulkarni",      role: "AR",  team: "LSG" },
     { name: "Wanindu Hasaranga",    role: "AR",  team: "LSG" },
     { name: "Ayush Badoni",         role: "AR",  team: "LSG" },
-    // Bowlers
     { name: "Mohammad Shami",       role: "BOWL", team: "LSG" },
     { name: "Avesh Khan",           role: "BOWL", team: "LSG" },
     { name: "Manimaran Siddharth",  role: "BOWL", team: "LSG" },
@@ -217,7 +190,6 @@ const SQUADS = {
     { name: "Mohsin Khan",          role: "BOWL", team: "LSG" },
   ],
   RR: [
-    // Batters
     { name: "Yashasvi Jaiswal",      role: "BAT", team: "RR" },
     { name: "Riyan Parag",           role: "BAT", team: "RR" },
     { name: "Shimron Hetmyer",       role: "BAT", team: "RR" },
@@ -225,15 +197,12 @@ const SQUADS = {
     { name: "Shubham Dubey",         role: "BAT", team: "RR" },
     { name: "Ravi Singh",            role: "BAT", team: "RR" },
     { name: "Aman Rao Perala",       role: "BAT", team: "RR" },
-    // Wicket-Keepers
     { name: "Dhruv Jurel",           role: "WK",  team: "RR" },
     { name: "Donovan Ferreira",      role: "WK",  team: "RR" },
     { name: "Lhuan-dre Pretorius",   role: "WK",  team: "RR" },
-    // All-Rounders
     { name: "Ravindra Jadeja",       role: "AR",  team: "RR" },
     { name: "Sam Curran",            role: "AR",  team: "RR" },
     { name: "Yudhvir Singh",         role: "AR",  team: "RR" },
-    // Bowlers
     { name: "Jofra Archer",          role: "BOWL", team: "RR" },
     { name: "Tushar Deshpande",      role: "BOWL", team: "RR" },
     { name: "Ravi Bishnoi",          role: "BOWL", team: "RR" },
@@ -248,47 +217,40 @@ const SQUADS = {
     { name: "Yash Raj Punia",        role: "BOWL", team: "RR" },
   ],
   GT: [
-    // Batters
     { name: "Shubman Gill",    role: "BAT", team: "GT" },
     { name: "Sai Sudharsan",   role: "BAT", team: "GT" },
     { name: "Shahrukh Khan",   role: "BAT", team: "GT" },
     { name: "Glenn Phillips",  role: "BAT", team: "GT" },
-    // Wicket-Keepers
-    { name: "Jos Buttler",      role: "WK",  team: "GT" },
-    { name: "Kumar Kushagra",   role: "WK",  team: "GT" },
-    { name: "Anuj Rawat",       role: "WK",  team: "GT" },
-    { name: "Tom Banton",       role: "WK",  team: "GT" },
-    // All-Rounders
+    { name: "Jos Buttler",     role: "WK",  team: "GT" },
+    { name: "Kumar Kushagra",  role: "WK",  team: "GT" },
+    { name: "Anuj Rawat",      role: "WK",  team: "GT" },
+    { name: "Tom Banton",      role: "WK",  team: "GT" },
     { name: "Washington Sundar", role: "AR", team: "GT" },
-    { name: "Jason Holder",      role: "AR", team: "GT" },
-    { name: "Nishant Sindhu",    role: "AR", team: "GT" },
-    { name: "Sai Kishore",       role: "AR", team: "GT" },
-    { name: "Jayant Yadav",      role: "AR", team: "GT" },
-    { name: "Mohd Arshad Khan",  role: "AR", team: "GT" },
-    { name: "Rashid Khan",       role: "AR", team: "GT" },
-    { name: "Rahul Tewatia",     role: "AR", team: "GT" },
-    // Bowlers
-    { name: "Mohammed Siraj",    role: "BOWL", team: "GT" },
-    { name: "Kagiso Rabada",     role: "BOWL", team: "GT" },
-    { name: "Prasidh Krishna",   role: "BOWL", team: "GT" },
-    { name: "Manav Suthar",      role: "BOWL", team: "GT" },
-    { name: "Gurnoor Brar",      role: "BOWL", team: "GT" },
-    { name: "Ishant Sharma",     role: "BOWL", team: "GT" },
-    { name: "Ashok Sharma",      role: "BOWL", team: "GT" },
-    { name: "Luke Wood",         role: "BOWL", team: "GT" },
+    { name: "Jason Holder",    role: "AR",  team: "GT" },
+    { name: "Nishant Sindhu",  role: "AR",  team: "GT" },
+    { name: "Sai Kishore",     role: "AR",  team: "GT" },
+    { name: "Jayant Yadav",    role: "AR",  team: "GT" },
+    { name: "Mohd Arshad Khan",role: "AR",  team: "GT" },
+    { name: "Rashid Khan",     role: "AR",  team: "GT" },
+    { name: "Rahul Tewatia",   role: "AR",  team: "GT" },
+    { name: "Mohammed Siraj",  role: "BOWL", team: "GT" },
+    { name: "Kagiso Rabada",   role: "BOWL", team: "GT" },
+    { name: "Prasidh Krishna", role: "BOWL", team: "GT" },
+    { name: "Manav Suthar",    role: "BOWL", team: "GT" },
+    { name: "Gurnoor Brar",    role: "BOWL", team: "GT" },
+    { name: "Ishant Sharma",   role: "BOWL", team: "GT" },
+    { name: "Ashok Sharma",    role: "BOWL", team: "GT" },
+    { name: "Luke Wood",       role: "BOWL", team: "GT" },
     { name: "Prithvi Raj Yarra", role: "BOWL", team: "GT" },
   ],
   PBKS: [
-    // Batters
     { name: "Shreyas Iyer",       role: "BAT", team: "PBKS" },
     { name: "Nehal Wadhera",      role: "BAT", team: "PBKS" },
     { name: "Shashank Singh",     role: "BAT", team: "PBKS" },
     { name: "Harnoor Pannu",      role: "BAT", team: "PBKS" },
     { name: "Pyla Avinash",       role: "BAT", team: "PBKS" },
-    // Wicket-Keepers
     { name: "Prabhsimran Singh",  role: "WK",  team: "PBKS" },
     { name: "Vishnu Vinod",       role: "WK",  team: "PBKS" },
-    // All-Rounders
     { name: "Marcus Stoinis",     role: "AR",  team: "PBKS" },
     { name: "Marco Jansen",       role: "AR",  team: "PBKS" },
     { name: "Azmatullah Omarzai", role: "AR",  team: "PBKS" },
@@ -299,7 +261,6 @@ const SQUADS = {
     { name: "Cooper Connolly",    role: "AR",  team: "PBKS" },
     { name: "Ben Dwarshuis",      role: "AR",  team: "PBKS" },
     { name: "Harpreet Brar",      role: "AR",  team: "PBKS" },
-    // Bowlers
     { name: "Arshdeep Singh",     role: "BOWL", team: "PBKS" },
     { name: "Yuzvendra Chahal",   role: "BOWL", team: "PBKS" },
     { name: "Lockie Ferguson",    role: "BOWL", team: "PBKS" },
@@ -335,6 +296,42 @@ const ROLE_FULL = { WK: "Wicket-Keeper", BAT: "Batter", AR: "All-Rounder", BOWL:
 const MAX_PLAYERS = 11;
 const MAX_PER_TEAM = 7;
 const ROLE_LIMITS = { WK: [1, 4], BAT: [1, 4], AR: [1, 4], BOWL: [3, 6] };
+
+// Helper: get player photo from PLAYERS_DATA
+function getPlayerPhoto(playerName, teamCode) {
+  const teamData = PLAYERS_DATA[teamCode];
+  if (!teamData) return null;
+  const found = teamData.players.find(p => p.name === playerName);
+  return found?.photo || null;
+}
+
+// Player Avatar — shows photo if available, else initials
+function PlayerAvatar({ name, team, size = 48, showBorder = false, borderColor = "#30363d" }) {
+  const [imgError, setImgError] = useState(false);
+  const photo = getPlayerPhoto(name, team);
+  const tc = TEAM_COLORS[team] || {};
+  const initials = name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: "50%", overflow: "hidden", flexShrink: 0,
+      border: showBorder ? `2px solid ${borderColor}` : `1px solid ${tc.primary || "#30363d"}`,
+      background: `linear-gradient(135deg,${tc.primary || "#333"},${tc.accent || "#555"})`,
+      display: "flex", alignItems: "center", justifyContent: "center",
+    }}>
+      {photo && !imgError ? (
+        <img
+          src={photo}
+          alt={name}
+          onError={() => setImgError(true)}
+          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+        />
+      ) : (
+        <span style={{ fontSize: size * 0.28, fontWeight: 700, color: "#fff" }}>{initials}</span>
+      )}
+    </div>
+  );
+}
 
 export default function Fantasy11({ username, matchInfo, matchStatus }) {
   const [step, setStep] = useState("pick");
@@ -447,6 +444,7 @@ export default function Fantasy11({ username, matchInfo, matchStatus }) {
     <div style={{ textAlign: "center", padding: 60, color: "#7d8590" }}>Loading your team...</div>
   );
 
+  // ── DONE (team saved) ──────────────────────────────────────────────────────
   if (step === "done" && existingTeam) return (
     <div style={{ maxWidth: 860, margin: "0 auto", paddingBottom: 60 }}>
       <div style={c.hdr}>
@@ -474,6 +472,7 @@ export default function Fantasy11({ username, matchInfo, matchStatus }) {
     </div>
   );
 
+  // ── CAPTAIN STEP ──────────────────────────────────────────────────────────
   if (step === "captain") return (
     <div style={{ maxWidth: 860, margin: "0 auto", paddingBottom: 60 }}>
       <div style={c.hdr}>
@@ -492,11 +491,14 @@ export default function Fantasy11({ username, matchInfo, matchStatus }) {
             <div key={p.name} style={{
               background: isCap ? "#ffd16615" : isVC ? "#7B68EE15" : "#161b22",
               border: `1px solid ${isCap ? "#ffd166" : isVC ? "#7B68EE" : "#30363d"}`,
-              borderRadius: 10, padding: "12px 14px", display: "flex", alignItems: "center", gap: 10,
+              borderRadius: 10, padding: "10px 12px", display: "flex", alignItems: "center", gap: 10,
             }}>
+              <PlayerAvatar name={p.name} team={p.team} size={42}
+                showBorder={isCap || isVC}
+                borderColor={isCap ? "#ffd166" : "#7B68EE"} />
               <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 600, fontSize: 14, color: "#e6edf3" }}>{p.name}</div>
-                <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+                <div style={{ fontWeight: 600, fontSize: 13, color: "#e6edf3" }}>{p.name}</div>
+                <div style={{ display: "flex", gap: 5, marginTop: 3 }}>
                   <span style={c.role(p.role)}>{p.role}</span>
                   <span style={c.team(p.team)}>{p.team}</span>
                 </div>
@@ -522,6 +524,7 @@ export default function Fantasy11({ username, matchInfo, matchStatus }) {
     </div>
   );
 
+  // ── CONFIRM STEP ──────────────────────────────────────────────────────────
   if (step === "confirm") return (
     <div style={{ maxWidth: 860, margin: "0 auto", paddingBottom: 60 }}>
       <div style={c.hdr}>
@@ -542,6 +545,7 @@ export default function Fantasy11({ username, matchInfo, matchStatus }) {
     </div>
   );
 
+  // ── PICK PLAYERS STEP ─────────────────────────────────────────────────────
   return (
     <div style={{ maxWidth: 860, margin: "0 auto", paddingBottom: 80 }}>
       <div style={c.hdr}>
@@ -560,6 +564,7 @@ export default function Fantasy11({ username, matchInfo, matchStatus }) {
 
       {isLocked && <div style={c.lock}>🔒 Match started — team creation locked.</div>}
 
+      {/* Role count bar */}
       <div style={{ background: "#161b22", borderRadius: 12, padding: "10px 18px", marginBottom: 14, border: "1px solid #30363d" }}>
         <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#7d8590", flexWrap: "wrap", gap: 8 }}>
           {["WK","BAT","AR","BOWL"].map(r => {
@@ -580,6 +585,7 @@ export default function Fantasy11({ username, matchInfo, matchStatus }) {
         </div>
       </div>
 
+      {/* Role filter */}
       <div style={{ display: "flex", gap: 7, marginBottom: 10, flexWrap: "wrap" }}>
         {["ALL","WK","BAT","AR","BOWL"].map(r => (
           <button key={r} style={c.chip(roleFilter === r, ROLE_COLORS[r]?.border || "#7d8590")}
@@ -589,6 +595,7 @@ export default function Fantasy11({ username, matchInfo, matchStatus }) {
         ))}
       </div>
 
+      {/* Team filter + sort */}
       <div style={{ display: "flex", gap: 7, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
         {["ALL", team1, team2].filter(Boolean).map(t => (
           <button key={t} style={c.chip(teamFilter === t, TEAM_COLORS[t]?.primary || "#7d8590")}
@@ -602,41 +609,69 @@ export default function Fantasy11({ username, matchInfo, matchStatus }) {
 
       {error && <div style={c.err}>{error}</div>}
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(245px,1fr))", gap: 8, marginBottom: 20 }}>
+      {/* Player cards with photos */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(200px,1fr))", gap: 10, marginBottom: 20 }}>
         {filtered.map(player => {
           const isSel = !!selected.find(p => p.name === player.name);
           const tc = TEAM_COLORS[player.team] || {};
+          const roleCol = ROLE_COLORS[player.role] || {};
+
           return (
             <div key={player.name} onClick={() => togglePlayer(player)} style={{
-              background: isSel ? (tc.primary || "#333") + "20" : "#161b22",
-              border: `1px solid ${isSel ? (tc.primary || "#555") : "#30363d"}`,
-              borderRadius: 10, padding: "10px 12px",
-              display: "flex", alignItems: "center", gap: 10,
-              cursor: "pointer", transition: "border-color .1s",
-              position: "relative", overflow: "hidden",
+              background: isSel ? (tc.primary || "#333") + "25" : "#161b22",
+              border: `1.5px solid ${isSel ? (tc.primary || "#555") : "#30363d"}`,
+              borderRadius: 12, padding: "12px 10px",
+              display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
+              cursor: "pointer", transition: "all .15s", position: "relative",
+              boxShadow: isSel ? `0 0 12px ${tc.primary || "#333"}44` : "none",
             }}>
-              <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3,
-                background: tc.primary || "#333", borderRadius: "10px 0 0 10px" }} />
-              <div style={{ flex: 1, paddingLeft: 4 }}>
-                <div style={{ fontWeight: 600, fontSize: 14, color: "#e6edf3" }}>{player.name}</div>
-                <div style={{ display: "flex", gap: 5, marginTop: 4, alignItems: "center" }}>
-                  <span style={c.role(player.role)}>{player.role}</span>
-                  <span style={c.team(player.team)}>{player.team}</span>
-                </div>
+              {/* Selected checkmark */}
+              {isSel && (
+                <div style={{ position: "absolute", top: 8, right: 8,
+                  width: 20, height: 20, borderRadius: "50%", background: "#00C896",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 11, fontWeight: 700, color: "#000" }}>✓</div>
+              )}
+
+              {/* Team color top bar */}
+              <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3,
+                background: tc.primary || "#333", borderRadius: "12px 12px 0 0" }} />
+
+              {/* Photo */}
+              <PlayerAvatar name={player.name} team={player.team} size={60} />
+
+              {/* Role badge */}
+              <div style={{
+                fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 99,
+                background: roleCol.border + "22", border: `1px solid ${roleCol.border}`,
+                color: roleCol.text,
+              }}>
+                {ROLE_FULL[player.role]}
               </div>
-              {isSel
-                ? <div style={{ width: 22, height: 22, borderRadius: "50%", background: "#00C896",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: 12, fontWeight: 700, color: "#000", flexShrink: 0 }}>✓</div>
-                : <div style={{ width: 22, height: 22, borderRadius: "50%", border: "2px solid #30363d",
-                    flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
-                    color: "#30363d", fontSize: 16 }}>+</div>
-              }
+
+              {/* Name */}
+              <div style={{
+                fontWeight: 600, fontSize: 12, color: "#e6edf3",
+                textAlign: "center", lineHeight: 1.3,
+                maxWidth: "100%", overflow: "hidden",
+              }}>
+                {player.name}
+              </div>
+
+              {/* Team tag */}
+              <div style={{
+                fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 6,
+                background: (tc.primary || "#333") + "44",
+                color: tc.accent || "#ccc",
+              }}>
+                {player.team}
+              </div>
             </div>
           );
         })}
       </div>
 
+      {/* Sticky footer */}
       <div style={{ position: "sticky", bottom: 0, background: "#0d1117",
         borderTop: "1px solid #30363d", padding: "12px 4px",
         display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
@@ -656,6 +691,7 @@ export default function Fantasy11({ username, matchInfo, matchStatus }) {
   );
 }
 
+// ── Styles ────────────────────────────────────────────────────────────────────
 const c = {
   hdr: {
     background: "linear-gradient(135deg,#0d1117,#161b22,#1a2236)",
@@ -691,45 +727,46 @@ const c = {
   lock: { background: "#1a0000", border: "1px solid #a32d2d", borderRadius: 10, padding: "11px 16px", marginBottom: 12, color: "#ff6b6b", fontSize: 13 },
 };
 
+// ── Pitch View ────────────────────────────────────────────────────────────────
 function PitchView({ selected, captain, viceCaptain }) {
   const rows = [
-    { label: "Bowlers",        players: selected.filter(p => p.role === "BOWL") },
-    { label: "All-Rounders",   players: selected.filter(p => p.role === "AR")   },
-    { label: "Batters",        players: selected.filter(p => p.role === "BAT")  },
-    { label: "Wicket-Keeper",  players: selected.filter(p => p.role === "WK")   },
+    { label: "Bowlers",       players: selected.filter(p => p.role === "BOWL") },
+    { label: "All-Rounders",  players: selected.filter(p => p.role === "AR")   },
+    { label: "Batters",       players: selected.filter(p => p.role === "BAT")  },
+    { label: "Wicket-Keeper", players: selected.filter(p => p.role === "WK")   },
   ];
   return (
     <div style={{ background: "linear-gradient(180deg,#0a4d1f,#0d6626,#0a4d1f)", borderRadius: 16, padding: "18px 12px", border: "2px solid #1a7a32", minHeight: 290 }}>
       {rows.map(({ label, players }) => (
-        <div key={label} style={{ marginBottom: 12 }}>
-          <div style={{ textAlign: "center", fontSize: 9, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 6 }}>{label}</div>
-          <div style={{ display: "flex", justifyContent: "center", gap: 8, flexWrap: "wrap" }}>
+        <div key={label} style={{ marginBottom: 14 }}>
+          <div style={{ textAlign: "center", fontSize: 9, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 8 }}>{label}</div>
+          <div style={{ display: "flex", justifyContent: "center", gap: 10, flexWrap: "wrap" }}>
             {players.map(p => {
               const isCap = captain?.name === p.name;
               const isVC  = viceCaptain?.name === p.name;
-              const tc    = TEAM_COLORS[p.team] || {};
               return (
-                <div key={p.name} style={{ textAlign: "center", width: 60 }}>
-                  <div style={{ position: "relative", width: 42, height: 42, margin: "0 auto 3px", borderRadius: "50%",
-                    background: `linear-gradient(135deg,${tc.primary || "#333"},${tc.accent || "#555"})`,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: 12, fontWeight: 700, color: "#fff",
-                    boxShadow: isCap ? "0 0 0 2px #ffd166" : isVC ? "0 0 0 2px #7B68EE" : "0 0 0 1px rgba(255,255,255,.15)",
-                  }}>
-                    {p.name.split(" ").map(w => w[0]).join("").slice(0,2)}
+                <div key={p.name} style={{ textAlign: "center", width: 56 }}>
+                  <div style={{ position: "relative", width: 44, height: 44, margin: "0 auto 4px" }}>
+                    <PlayerAvatar
+                      name={p.name}
+                      team={p.team}
+                      size={44}
+                      showBorder={isCap || isVC}
+                      borderColor={isCap ? "#ffd166" : "#7B68EE"}
+                    />
                     {(isCap || isVC) && (
-                      <div style={{ position: "absolute", bottom: -3, right: -2, width: 14, height: 14, borderRadius: "50%",
+                      <div style={{ position: "absolute", bottom: -3, right: -3, width: 15, height: 15, borderRadius: "50%",
                         background: isCap ? "#ffd166" : "#7B68EE",
                         display: "flex", alignItems: "center", justifyContent: "center",
                         fontSize: 8, fontWeight: 800, color: isCap ? "#000" : "#fff",
-                        border: "1px solid #0a4d1f",
+                        border: "1.5px solid #0a4d1f",
                       }}>{isCap ? "C" : "VC"}</div>
                     )}
                   </div>
                   <div style={{ fontSize: 9, color: "#e6edf3", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                     {p.name.split(" ").slice(-1)[0]}
                   </div>
-                  <div style={{ fontSize: 8, color: tc.accent || "#7d8590", fontWeight: 600 }}>{p.team}</div>
+                  <div style={{ fontSize: 8, color: (TEAM_COLORS[p.team]?.accent || "#7d8590"), fontWeight: 600 }}>{p.team}</div>
                 </div>
               );
             })}
