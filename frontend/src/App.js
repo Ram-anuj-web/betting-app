@@ -2,7 +2,7 @@ import Multiplayer from "./Multiplayer";
 import Matches from "./Matches";
 import Fantasy11 from "./Fantasy11";
 import Mines from "./Mines";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import "./App.css";
 
 const API = "https://betting-backend-xq1q.onrender.com";
@@ -13,6 +13,44 @@ const SPORTS = [
   { id: "basketball",name: "Basketball", emoji: "🏀", teams: ["Lakers", "Warriors", "Bulls", "Celtics"] },
   { id: "tennis",    name: "Tennis",     emoji: "🎾", teams: ["Djokovic", "Alcaraz", "Sinner", "Medvedev"] },
 ];
+
+// 🆕 Hook: animates a number counting up from 0 to target
+function useCountUp(target, duration = 1200, trigger = true) {
+  const [display, setDisplay] = useState(0);
+  const rafRef = useRef(null);
+  const prevTarget = useRef(target);
+
+  useEffect(() => {
+    if (!trigger) { setDisplay(target); return; }
+    const start = prevTarget.current === target ? 0 : display;
+    prevTarget.current = target;
+    const startTime = performance.now();
+    const diff = target - start;
+
+    function step(now) {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      // Ease out cubic
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplay(Math.round(start + diff * eased));
+      if (progress < 1) rafRef.current = requestAnimationFrame(step);
+    }
+
+    rafRef.current = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [target, trigger]);
+
+  return display;
+}
+
+// 🆕 Animated dots for loading button
+function LoadingDots() {
+  return (
+    <span className="loading-dots">
+      <span /><span /><span />
+    </span>
+  );
+}
 
 function Fantasy11BreakdownModal({ item, username, onClose }) {
   const [breakdown, setBreakdown] = useState(null);
@@ -253,6 +291,22 @@ export default function App() {
   const [historyFilter, setHistoryFilter] = useState("all");
   const [selectedHistoryItem, setSelectedHistoryItem] = useState(null);
 
+  // 🆕 Count-up: only animate on home screen first load
+  const [homeLoaded, setHomeLoaded] = useState(false);
+  const displayPoints = useCountUp(points, 1400, screen === "home" && !homeLoaded);
+
+  useEffect(() => {
+    if (screen === "home" && !homeLoaded) {
+      // After first count-up finishes, mark loaded so subsequent point changes
+      // don't re-animate from 0 (just snap to new value)
+      const t = setTimeout(() => setHomeLoaded(true), 1600);
+      return () => clearTimeout(t);
+    }
+  }, [screen]);
+
+  // Reset homeLoaded on logout so next login re-animates
+  const resetHome = () => setHomeLoaded(false);
+
   useEffect(() => { window.history.pushState({ screen }, "", ""); }, [screen]);
   useEffect(() => {
     const handleBack = (e) => { if (e.state?.screen) setScreen(e.state.screen); };
@@ -466,6 +520,7 @@ export default function App() {
     setUsername(""); setInputName(""); setInputPassword(""); setPoints(1000); setLockedPoints(0);
     setMyBets([]); setAllHistory([]); setLeaderboard([]);
     setScreen("auth"); setAuthMode("login"); setPrefilledMatch(null); setMatchStatus(null);
+    resetHome(); // 🆕 reset so next login re-animates count-up
   };
 
   const statusColor = (s) => ({
@@ -578,8 +633,9 @@ export default function App() {
             <input className="login-input" type="password" placeholder="Password" value={inputPassword}
               onChange={e => setInputPassword(e.target.value)} onKeyDown={e => e.key === "Enter" && handleAuth()} />
             {error && <div className="error-msg">{error}</div>}
+            {/* 🆕 Loading dots instead of "Loading..." text */}
             <button className="btn-primary" onClick={handleAuth} disabled={loading}>
-              {loading ? "Loading..." : authMode === "login" ? "Login →" : "Create Account →"}
+              {loading ? <LoadingDots /> : authMode === "login" ? "Login →" : "Create Account →"}
             </button>
           </div>
         </div>
@@ -604,6 +660,7 @@ export default function App() {
               <button className={screen === "mines"       ? "active" : ""} onClick={() => setScreen("mines")}>💣 Mines</button>
             </div>
             <div className="nav-right">
+              {/* 🆕 Nav shows real-time points (not animated — only home hero animates) */}
               <div className={`nav-points ${animatePoints ? "pulse" : ""}`}>
                 <span>💰</span>
                 <span className="points-value">{points.toLocaleString()}</span>
@@ -626,11 +683,12 @@ export default function App() {
               <div className="hero">
                 <div className="hero-badge">🏆 FANTASY SPORTS BETTING</div>
                 <h1 className="hero-title">Welcome,<br /><span className="accent">{username}!</span></h1>
+                {/* 🆕 Points count-up animation */}
                 <p className="hero-sub">
-                  You have <strong>{points.toLocaleString()} points</strong> available
+                  You have <strong>{displayPoints.toLocaleString()} points</strong> available
                   {lockedPoints > 0 && <span> · <span style={{ color: "#BA7517" }}>🔒 {lockedPoints} locked</span></span>}
                 </p>
-                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
                   <button className="btn-primary" onClick={() => setScreen("matches")}>🏏 Bet on IPL →</button>
                   <button className="btn-primary" onClick={() => setScreen("fantasy11")} style={{ background: "#BA7517" }}>🏆 Fantasy 11 →</button>
                   <button className="btn-primary" onClick={() => { fetchAllHistory(); setScreen("history"); }} style={{ background: "#1D9E75" }}>My Bets →</button>
@@ -656,7 +714,6 @@ export default function App() {
                 <div className="stat-box"><div className="stat-num">{allHistory.length}</div><div className="stat-label">Total Bets</div></div>
                 <div className="stat-box"><div className="stat-num">{allHistory.filter(b => b.status === "won").length}</div><div className="stat-label">Wins</div></div>
                 <div className="stat-box"><div className="stat-num">{allHistory.filter(b => b.status === "pending" || b.status === "active").length}</div><div className="stat-label">Pending</div></div>
-                <div className="stat-box"><div className="stat-num">{allHistory.filter(b => b.type === "fantasy11").length}</div><div className="stat-label">Fantasy 11</div></div>
               </div>
             </div>
           )}
@@ -756,7 +813,7 @@ export default function App() {
                           <div className="input-row">
                             <input type="number" className="bet-input" placeholder="Enter amount..." value={betAmount} onChange={e => setBetAmount(e.target.value)} max={points} />
                             <button className="btn-primary bet-btn" onClick={placeBet} disabled={loading || !betAmount || parseInt(betAmount) <= 0 || parseInt(betAmount) > points}>
-                              {loading ? "Placing..." : "Lock Bet 🔒"}
+                              {loading ? <LoadingDots /> : "Lock Bet 🔒"}
                             </button>
                           </div>
                           {error && <div className="error-msg">{error}</div>}
