@@ -1,0 +1,279 @@
+{
+  "meta": {
+    "season": "IPL 2026",
+    "last_updated": "2026-04-11",
+    "note": "t1_results: 1 = t1 won, 0 = t1 lost. Ordered oldest → newest (last item = most recent). Updated after M1-M18."
+  },
+  "matchups": {
+    "RCB-CSK": {
+      "t1": "RCB", "t2": "CSK",
+      "t1_results": [1, 0, 1],
+      "summary": "RCB lead 2-1",
+      "last_match": "2026-04-05"
+    },
+    "RCB-MI": {
+      "t1": "RCB", "t2": "MI",
+      "t1_results": [1, 0, 1],
+      "summary": "RCB lead 2-1",
+      "last_match": "2025-05-01"
+    },
+    "RCB-KKR": {
+      "t1": "RCB", "t2": "KKR",
+      "t1_results": [0, 0, 1],
+      "summary": "KKR lead 2-1",
+      "last_match": "2025-04-22"
+    },
+    "RCB-SRH": {
+      "t1": "RCB", "t2": "SRH",
+      "t1_results": [0, 1, 1],
+      "summary": "RCB lead 2-1",
+      "last_match": "2026-03-28"
+    },
+    "RCB-DC": {
+      "t1": "RCB", "t2": "DC",
+      "t1_results": [1, 1, 0],
+      "summary": "RCB lead 2-1",
+      "last_match": "2025-04-08"
+    },
+    "RCB-GT": {
+      "t1": "RCB", "t2": "GT",
+      "t1_results": [0, 1, 1],
+      "summary": "RCB lead 2-1",
+      "last_match": "2025-05-10"
+    },
+    "RCB-LSG": {
+      "t1": "RCB", "t2": "LSG",
+      "t1_results": [1, 1, 0],
+      "summary": "RCB lead 2-1",
+      "last_match": "2025-04-17"
+    },
+    "RCB-PBKS": {
+      "t1": "RCB", "t2": "PBKS",
+      "t1_results": [0, 1, 1],
+      "summary": "RCB lead 2-1",
+      "last_match": "2025-04-30"
+    },
+    "RCB-RR": {
+      "t1": "RCB", "t2": "RR",
+      "t1_results": [1, 0, 0],
+      "summary": "RR lead 2-1",
+      "last_match": "2026-04-10"
+    },
+    "CSK-MI": {
+      "t1": "CSK", "t2": "MI",
+      "t1_results": [0, 1, 0],
+      "summary": "MI lead 2-1",
+      "last_match": "2025-05-01"
+    },
+    "CSK-KKR": {
+      "t1": "CSK", "t2": "KKR",
+      "t1_results": [1, 0, 1],
+      "summary": "CSK lead 2-1",
+      "last_match": "2025-04-18"
+    },
+    "CSK-SRH": {
+      "t1": "CSK", "t2": "SRH",
+      "t1_results": [1, 1, 0],
+      "summary": "CSK lead 2-1",
+      "last_match": "2025-05-03"
+    },
+    "CSK-DC": {
+      "t1": "CSK", "t2": "DC",
+      "t1_results": [1, 0, 1],
+      "summary": "CSK lead 2-1",
+      "last_match": "2026-04-11"
+    },
+    "CSK-GT": {
+      "t1": "CSK", "t2": "GT",
+      "t1_results": [1, 0, 0],
+      "summary": "GT lead 2-1",
+      "last_match": "2025-05-07"
+    },
+    "CSK-LSG": {
+      "t1": "CSK", "t2": "LSG",
+      "t1_results": [0, 0, 1],
+      "summary": "LSG lead 2-1",
+      "last_match": "2025-04-20"
+    },
+    "CSK-PBKS": {
+      "t1": "CSK", "t2": "PBKS",
+      "t1_results": [1, 1, 0],
+      "summary": "CSK lead 2-1",
+      "last_match": "2026-04-03"
+    },
+    "CSK-RR": {
+      "t1": "CSK", "t2": "RR",
+      "t1_results": [1, 0, 0],
+      "summary": "RR lead 2-1",
+      "last_match": "2026-03-30"
+    },
+    "MI-KKR": {
+      "t1": "MI", "t2": "KKR",
+      "t1_results": [1, 0, 1],
+      "summary": "MI lead 2-1",
+      "last_match": "2026-03-29"
+    },
+    "MI-SRH": {
+      "t1": "MI", "t2": "SRH",
+      "t1_results": [0, 1, 1],
+      "summary": "MI lead 2-1",
+      "last_match": "2025-04-15"
+    },
+    "MI-DC": {
+      "t1": "MI", "t2": "DC",
+      "t1_results": [1, 0, 0],
+      "summary": "DC lead 2-1",
+      "last_match": "2026-04-04"
+    },
+    "MI-GT": {
+      "t1": "MI", "t2": "GT",
+      "t1_results": [0, 0, 1],
+      "summary": "GT lead 2-1",
+      "last_match": "2025-05-05"
+    },
+    "MI-LSG": {
+      "t1": "MI", "t2": "LSG",
+      "t1_results": [1, 1, 0],
+      "summary": "MI lead 2-1",
+      "last_match": "2025-04-23"
+    },
+    "MI-PBKS": {
+      "t1": "MI", "t2": "PBKS",
+      "t1_results": [0, 1, 1],
+      "summary": "MI lead 2-1",
+      "last_match": "2025-05-09"
+    },
+    "MI-RR": {
+      "t1": "MI", "t2": "RR",
+      "t1_results": [1, 0, 0],
+      "summary": "RR lead 2-1",
+      "last_match": "2026-04-07"
+    },
+    "KKR-SRH": {
+      "t1": "KKR", "t2": "SRH",
+      "t1_results": [1, 0, 0],
+      "summary": "SRH lead 2-1",
+      "last_match": "2026-04-02"
+    },
+    "KKR-DC": {
+      "t1": "KKR", "t2": "DC",
+      "t1_results": [0, 1, 1],
+      "summary": "KKR lead 2-1",
+      "last_match": "2025-05-02"
+    },
+    "KKR-GT": {
+      "t1": "KKR", "t2": "GT",
+      "t1_results": [1, 0, 0],
+      "summary": "GT lead 2-1",
+      "last_match": "2025-04-26"
+    },
+    "KKR-LSG": {
+      "t1": "KKR", "t2": "LSG",
+      "t1_results": [1, 0, 0],
+      "summary": "LSG lead 2-1",
+      "last_match": "2026-04-09"
+    },
+    "KKR-PBKS": {
+      "t1": "KKR", "t2": "PBKS",
+      "t1_results": [1, 0, 0],
+      "summary": "PBKS lead 2-1",
+      "last_match": "2026-04-06"
+    },
+    "KKR-RR": {
+      "t1": "KKR", "t2": "RR",
+      "t1_results": [0, 0, 1],
+      "summary": "Tied 1-1 recent",
+      "last_match": "2025-05-11"
+    },
+    "SRH-DC": {
+      "t1": "SRH", "t2": "DC",
+      "t1_results": [1, 0, 1],
+      "summary": "SRH lead 2-1",
+      "last_match": "2025-04-13"
+    },
+    "SRH-GT": {
+      "t1": "SRH", "t2": "GT",
+      "t1_results": [0, 1, 1],
+      "summary": "SRH lead 2-1",
+      "last_match": "2025-04-28"
+    },
+    "SRH-LSG": {
+      "t1": "SRH", "t2": "LSG",
+      "t1_results": [1, 0, 0],
+      "summary": "LSG lead 2-1",
+      "last_match": "2026-04-05"
+    },
+    "SRH-PBKS": {
+      "t1": "SRH", "t2": "PBKS",
+      "t1_results": [0, 0, 0],
+      "summary": "PBKS lead 3-0",
+      "last_match": "2026-04-11"
+    },
+    "SRH-RR": {
+      "t1": "SRH", "t2": "RR",
+      "t1_results": [1, 0, 1],
+      "summary": "SRH lead 2-1",
+      "last_match": "2025-05-13"
+    },
+    "DC-GT": {
+      "t1": "DC", "t2": "GT",
+      "t1_results": [1, 0, 0],
+      "summary": "GT lead 2-1",
+      "last_match": "2026-04-08"
+    },
+    "DC-LSG": {
+      "t1": "DC", "t2": "LSG",
+      "t1_results": [0, 1, 1],
+      "summary": "DC lead 2-1",
+      "last_match": "2026-04-01"
+    },
+    "DC-PBKS": {
+      "t1": "DC", "t2": "PBKS",
+      "t1_results": [0, 1, 1],
+      "summary": "DC lead 2-1",
+      "last_match": "2025-04-30"
+    },
+    "DC-RR": {
+      "t1": "DC", "t2": "RR",
+      "t1_results": [1, 1, 0],
+      "summary": "DC lead 2-1",
+      "last_match": "2025-05-15"
+    },
+    "GT-LSG": {
+      "t1": "GT", "t2": "LSG",
+      "t1_results": [0, 1, 0],
+      "summary": "LSG lead 2-1",
+      "last_match": "2025-04-17"
+    },
+    "GT-PBKS": {
+      "t1": "GT", "t2": "PBKS",
+      "t1_results": [0, 0, 0],
+      "summary": "PBKS lead 3-0",
+      "last_match": "2026-03-31"
+    },
+    "GT-RR": {
+      "t1": "GT", "t2": "RR",
+      "t1_results": [0, 1, 0],
+      "summary": "RR lead 2-1",
+      "last_match": "2026-04-04"
+    },
+    "LSG-PBKS": {
+      "t1": "LSG", "t2": "PBKS",
+      "t1_results": [1, 1, 0],
+      "summary": "LSG lead 2-1",
+      "last_match": "2025-04-26"
+    },
+    "LSG-RR": {
+      "t1": "LSG", "t2": "RR",
+      "t1_results": [0, 1, 1],
+      "summary": "LSG lead 2-1",
+      "last_match": "2025-05-09"
+    },
+    "PBKS-RR": {
+      "t1": "PBKS", "t2": "RR",
+      "t1_results": [1, 0, 0],
+      "summary": "RR lead 2-1",
+      "last_match": "2025-05-14"
+    }
+  }
+}

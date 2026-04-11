@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { getH2H } from "./h2hUtils";
 
 const API = "https://betting-backend-xq1q.onrender.com";
 
@@ -28,6 +29,61 @@ const TEAM_LOGOS = {
   DC:   "https://scores.iplt20.com/ipl/teamlogos/DC.png",
 };
 
+// ── H2H Dots Component ──────────────────────────────────────────────────────
+function H2HStrip({ team1, team2 }) {
+  const h2h = getH2H(team1, team2);
+  if (!h2h) return null;
+
+  const isReversed = h2h.t1 !== team1;
+  const results = isReversed
+    ? h2h.results.map(r => (r === 1 ? 0 : 1))
+    : h2h.results;
+
+  return (
+    <div style={{
+      display: "flex", flexDirection: "column", alignItems: "center",
+      gap: 4, margin: "8px 0 4px",
+    }}>
+      <span style={{ fontSize: 9, color: "#b4b2a9", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+        Last 3 H2H · {team1} view
+      </span>
+      <div style={{ display: "flex", gap: 5 }}>
+        {results.map((r, i) => (
+          <div key={i} style={{
+            width: 24, height: 24, borderRadius: "50%",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 9, fontWeight: 600,
+            background: r === 1 ? "#E1F5EE" : "#FCEBEB",
+            color:      r === 1 ? "#0F6E56" : "#A32D2D",
+            border:     `1px solid ${r === 1 ? "#5DCAA540" : "#F0959540"}`,
+          }}>
+            {r === 1 ? "W" : "L"}
+          </div>
+        ))}
+      </div>
+      <span style={{ fontSize: 10, color: "#888780" }}>{h2h.summary}</span>
+    </div>
+  );
+}
+
+// ── Win Probability Bar ─────────────────────────────────────────────────────
+function WinBar({ team1, team2, pct1, pct2, label = "Win Probability" }) {
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#888780", marginBottom: 3 }}>
+        <span>{team1} {pct1}%</span>
+        <span style={{ color: "#b4b2a9" }}>{label}</span>
+        <span>{pct2}% {team2}</span>
+      </div>
+      <div style={{ display: "flex", height: 5, borderRadius: 99, overflow: "hidden", background: "#e8e6dc" }}>
+        <div style={{ width: `${pct1}%`, background: TEAM_COLORS[team1]?.bg || "#7F77DD", transition: "width 0.5s" }} />
+        <div style={{ width: `${pct2}%`, background: TEAM_COLORS[team2]?.bg || "#d3d1c7" }} />
+      </div>
+    </div>
+  );
+}
+
+// ── Existing helpers (unchanged) ────────────────────────────────────────────
 function getOddsLabel(odds, team1, team2) {
   if (!odds) return { [team1]: null, [team2]: null };
   const o1 = odds[team1], o2 = odds[team2];
@@ -57,17 +113,11 @@ function OddsChip({ team, odds, role }) {
   );
 }
 
-// 🔧 FIX: Normalize a raw key from the API into multiple candidate forms
-// so we can match regardless of what format the backend uses
 function buildCandidateKeys(matchId) {
-  const id = String(matchId).replace(/^ipl[-_]?/i, ""); // strip any existing prefix
+  const id = String(matchId).replace(/^ipl[-_]?/i, "");
   return [
-    `ipl-${id}`,       // e.g. "ipl-11"
-    `ipl_${id}`,       // e.g. "ipl_11"
-    `match-${id}`,     // e.g. "match-11"
-    `match_${id}`,     // e.g. "match_11"
-    `ipl-match-${id}`, // e.g. "ipl-match-11"
-    id,                // e.g. "11"
+    `ipl-${id}`, `ipl_${id}`, `match-${id}`,
+    `match_${id}`, `ipl-match-${id}`, id,
   ];
 }
 
@@ -79,6 +129,7 @@ function resolveOdds(oddsMap, matchId) {
   return null;
 }
 
+// ── Main Component ──────────────────────────────────────────────────────────
 export default function Matches({ onBetOnMatch, onFantasy11 }) {
   const [matches, setMatches]         = useState([]);
   const [loading, setLoading]         = useState(true);
@@ -86,7 +137,7 @@ export default function Matches({ onBetOnMatch, onFantasy11 }) {
   const [filter, setFilter]           = useState("all");
   const [oddsMap, setOddsMap]         = useState({});
   const [oddsLoading, setOddsLoading] = useState(false);
-  const [oddsError, setOddsError]     = useState("");  // 🔧 FIX: surface odds errors
+  const [oddsError, setOddsError]     = useState("");
 
   useEffect(() => { fetchMatches(); }, []);
 
@@ -103,29 +154,21 @@ export default function Matches({ onBetOnMatch, onFantasy11 }) {
       setError("Can't connect to server.");
     }
     setLoading(false);
-    // 🔧 FIX: fetch odds independently, not inside the try block above
     fetchBulkOdds();
   }
 
   async function fetchBulkOdds() {
-    setOddsLoading(true);
-    setOddsError("");
+    setOddsLoading(true); setOddsError("");
     try {
       const res  = await fetch(`${API}/odds-bulk`);
-      if (!res.ok) {
-        throw new Error(`Odds endpoint returned ${res.status}`);
-      }
+      if (!res.ok) throw new Error(`Odds endpoint returned ${res.status}`);
       const data = await res.json();
-
-      // 🔧 FIX: Log the raw keys so you can see exactly what the backend returns
       const rawOdds = data.odds || data || {};
       console.log("[Odds] Raw keys from /odds-bulk:", Object.keys(rawOdds));
-      console.log("[Odds] Full payload:", rawOdds);
-
       setOddsMap(rawOdds);
     } catch (err) {
       console.error("[Odds] Fetch error:", err);
-      setOddsError("Odds unavailable");  // 🔧 FIX: show user-visible error
+      setOddsError("Odds unavailable");
     }
     setOddsLoading(false);
   }
@@ -133,7 +176,8 @@ export default function Matches({ onBetOnMatch, onFantasy11 }) {
   function formatDate(dateStr, timeStr) {
     if (!dateStr) return "TBA";
     const d = new Date(`${dateStr}T${timeStr || "19:30"}:00+05:30`);
-    return d.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" }) + " · " + (timeStr || "19:30") + " IST";
+    return d.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })
+      + " · " + (timeStr || "19:30") + " IST";
   }
 
   const filtered  = filter === "all" ? matches : matches.filter(m => m.status === filter);
@@ -148,15 +192,21 @@ export default function Matches({ onBetOnMatch, onFantasy11 }) {
     filterBtn:   (active) => ({
       padding: "5px 14px", borderRadius: 99, border: "0.5px solid",
       borderColor: active ? "#7F77DD" : "#d3d1c7",
-      background: active ? "#EEEDFE" : "transparent",
-      color: active ? "#3C3489" : "#888780",
+      background:  active ? "#EEEDFE" : "transparent",
+      color:       active ? "#3C3489" : "#888780",
       cursor: "pointer", fontSize: 12, fontWeight: active ? 500 : 400,
     }),
     card:        (status) => ({
-      background: status === "live" ? "#E1F5EE" : "#fff",
-      border: status === "live" ? "1px solid #1D9E75" : "0.5px solid #d3d1c7",
-      borderRadius: 12, padding: "16px 20px", marginBottom: 10,
+      background:   status === "live" ? "#E1F5EE" : "#fff",
+      border:       status === "live" ? "1px solid #1D9E75" : "0.5px solid #d3d1c7",
+      borderRadius: 12, marginBottom: 10,
+      overflow:     "hidden",
     }),
+    stripe:      (t1, t2) => ({
+      height: 3,
+      background: `linear-gradient(90deg, ${TEAM_COLORS[t1]?.bg || "#7F77DD"}, ${TEAM_COLORS[t2]?.bg || "#d3d1c7"})`,
+    }),
+    cardBody:    { padding: "14px 20px 16px" },
     topRow:      { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 },
     badge:       (status) => {
       const map = {
@@ -207,7 +257,6 @@ export default function Matches({ onBetOnMatch, onFantasy11 }) {
         {oddsLoading && <span style={{ marginLeft: 8, color: "#7F77DD" }}>· fetching odds...</span>}
       </div>
 
-      {/* 🔧 FIX: Show odds error banner if odds failed */}
       {oddsError && !oddsLoading && (
         <div style={s.oddsErrBanner}>⚠️ {oddsError} — odds will not display</div>
       )}
@@ -233,7 +282,6 @@ export default function Matches({ onBetOnMatch, onFantasy11 }) {
       {!loading && !error && filtered.length === 0 && <div style={s.empty}>No {filter} matches found.</div>}
 
       {!loading && !error && filtered.map(match => {
-        // 🔧 FIX: use flexible key resolution instead of hardcoded "ipl-{id}"
         const odds  = resolveOdds(oddsMap, match.id);
         const roles = getOddsLabel(odds, match.team1, match.team2);
 
@@ -256,105 +304,117 @@ export default function Matches({ onBetOnMatch, onFantasy11 }) {
 
         return (
           <div key={match.id} style={s.card(match.status)}>
-            <div style={s.topRow}>
-              <span style={s.badge(match.status)}>
-                {match.status === "live" && <span style={{ ...s.liveDot, animation: "blink 1s infinite" }} />}
-                {match.status}
-              </span>
-              <span style={s.matchNum}>Match {match.id}</span>
-            </div>
 
-            <div style={s.teamsRow}>
-              <div style={s.teamBox("left")}>
-                <span style={s.teamBadge(match.team1)}>
-                  <img src={TEAM_LOGOS[match.team1]} alt={match.team1}
-                    style={{ width: 36, height: 36, objectFit: "contain", marginRight: 8 }}
-                    onError={e => { e.target.style.display = "none"; }} />
-                  {match.team1}
+            {/* ── Color stripe using both team colors ── */}
+            <div style={s.stripe(match.team1, match.team2)} />
+
+            <div style={s.cardBody}>
+              <div style={s.topRow}>
+                <span style={s.badge(match.status)}>
+                  {match.status === "live" && <span style={{ ...s.liveDot, animation: "blink 1s infinite" }} />}
+                  {match.status}
                 </span>
-                {odds && <OddsChip team={match.team1} odds={odds[match.team1]} role={roles[match.team1]} />}
+                <span style={s.matchNum}>Match {match.id}</span>
               </div>
 
-              <span style={s.vs}>VS</span>
+              <div style={s.teamsRow}>
+                <div style={s.teamBox("left")}>
+                  <span style={s.teamBadge(match.team1)}>
+                    <img src={TEAM_LOGOS[match.team1]} alt={match.team1}
+                      style={{ width: 36, height: 36, objectFit: "contain", marginRight: 8 }}
+                      onError={e => { e.target.style.display = "none"; }} />
+                    {match.team1}
+                  </span>
+                  {odds && <OddsChip team={match.team1} odds={odds[match.team1]} role={roles[match.team1]} />}
+                </div>
 
-              <div style={s.teamBox("right")}>
-                <span style={s.teamBadge(match.team2)}>
-                  {match.team2}
-                  <img src={TEAM_LOGOS[match.team2]} alt={match.team2}
-                    style={{ width: 36, height: 36, objectFit: "contain", marginLeft: 8 }}
-                    onError={e => { e.target.style.display = "none"; }} />
-                </span>
-                {odds && <OddsChip team={match.team2} odds={odds[match.team2]} role={roles[match.team2]} />}
+                <span style={s.vs}>VS</span>
+
+                <div style={s.teamBox("right")}>
+                  <span style={s.teamBadge(match.team2)}>
+                    {match.team2}
+                    <img src={TEAM_LOGOS[match.team2]} alt={match.team2}
+                      style={{ width: 36, height: 36, objectFit: "contain", marginLeft: 8 }}
+                      onError={e => { e.target.style.display = "none"; }} />
+                  </span>
+                  {odds && <OddsChip team={match.team2} odds={odds[match.team2]} role={roles[match.team2]} />}
+                </div>
               </div>
+
+              {/* ── Win probability bar (upcoming: from odds, completed: from H2H final split) ── */}
+              {match.status === "upcoming" && odds && (
+                <WinBar
+                  team1={match.team1} team2={match.team2}
+                  pct1={team1Pct} pct2={team2Pct}
+                />
+              )}
+
+              {match.status === "completed" && (
+                <WinBar
+                  team1={match.team1} team2={match.team2}
+                  pct1={team1Pct} pct2={team2Pct}
+                  label="Final win split"
+                />
+              )}
+
+              {/* ── H2H last 3 results ── */}
+              <H2HStrip team1={match.team1} team2={match.team2} />
+
+              {/* ── Odds payout row (upcoming only) ── */}
+              {odds && match.status === "upcoming" && (
+                <div style={s.oddsRow}>
+                  <div style={s.payout}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "#444441" }}>Bet 100 → Win</div>
+                    <div style={{ fontSize: 13, color: "#0F6E56", fontWeight: 700 }}>{Math.floor(100 * odds[match.team1])} pts</div>
+                    <div style={{ fontSize: 10, color: "#888780" }}>on {match.team1}</div>
+                  </div>
+                  <div style={{ width: 1, background: "#e8e6dc", alignSelf: "stretch" }} />
+                  <div style={{ fontSize: 11, color: "#888780", textAlign: "center", padding: "0 8px" }}>📊 Live odds<br />from bookmakers</div>
+                  <div style={{ width: 1, background: "#e8e6dc", alignSelf: "stretch" }} />
+                  <div style={s.payout}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "#444441" }}>Bet 100 → Win</div>
+                    <div style={{ fontSize: 13, color: "#0F6E56", fontWeight: 700 }}>{Math.floor(100 * odds[match.team2])} pts</div>
+                    <div style={{ fontSize: 10, color: "#888780" }}>on {match.team2}</div>
+                  </div>
+                </div>
+              )}
+
+              <div style={s.meta}>
+                📅 {formatDate(match.date, match.time)} &nbsp;·&nbsp; 📍 {match.venue}
+              </div>
+
+              {match.status === "upcoming" && (
+                <div style={s.btnRow}>
+                  <button style={s.betBtn} onClick={() => onBetOnMatch(matchInfo)}>
+                    ⚡ Bet on this match
+                  </button>
+                  <button style={s.f11Btn} onClick={() => onFantasy11(matchInfo)}>
+                    🏏 Fantasy 11
+                  </button>
+                </div>
+              )}
+
+              {match.status === "live" && (
+                <>
+                  <div style={s.liveLockBtn}>
+                    <span style={s.liveDotBtn} />
+                    Match is Live — Betting Closed
+                  </div>
+                  <button style={s.f11ViewBtn} onClick={() => onFantasy11(matchInfo)}>
+                    🏏 View My Fantasy 11 (Read-Only)
+                  </button>
+                </>
+              )}
+
+              {match.status === "completed" && (
+                <>
+                  <button style={s.disabledBtn} disabled>Match Completed</button>
+                  <button style={s.f11ViewBtn} onClick={() => onFantasy11(matchInfo)}>
+                    🏏 View My Fantasy 11
+                  </button>
+                </>
+              )}
             </div>
-
-            {odds && match.status === "upcoming" && (
-              <div style={{ marginBottom: 10 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#888780", marginBottom: 3 }}>
-                  <span>{match.team1} {team1Pct}%</span>
-                  <span style={{ color: "#b4b2a9" }}>Win Probability</span>
-                  <span>{team2Pct}% {match.team2}</span>
-                </div>
-                <div style={{ display: "flex", height: 5, borderRadius: 99, overflow: "hidden", background: "#e8e6dc" }}>
-                  <div style={{ width: `${team1Pct}%`, background: TEAM_COLORS[match.team1]?.bg || "#7F77DD", transition: "width 0.5s" }} />
-                  <div style={{ width: `${team2Pct}%`, background: TEAM_COLORS[match.team2]?.bg || "#d3d1c7" }} />
-                </div>
-              </div>
-            )}
-
-            {odds && match.status === "upcoming" && (
-              <div style={s.oddsRow}>
-                <div style={s.payout}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: "#444441" }}>Bet 100 → Win</div>
-                  <div style={{ fontSize: 13, color: "#0F6E56", fontWeight: 700 }}>{Math.floor(100 * odds[match.team1])} pts</div>
-                  <div style={{ fontSize: 10, color: "#888780" }}>on {match.team1}</div>
-                </div>
-                <div style={{ width: 1, background: "#e8e6dc", alignSelf: "stretch" }} />
-                <div style={{ fontSize: 11, color: "#888780", textAlign: "center", padding: "0 8px" }}>📊 Live odds<br />from bookmakers</div>
-                <div style={{ width: 1, background: "#e8e6dc", alignSelf: "stretch" }} />
-                <div style={s.payout}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: "#444441" }}>Bet 100 → Win</div>
-                  <div style={{ fontSize: 13, color: "#0F6E56", fontWeight: 700 }}>{Math.floor(100 * odds[match.team2])} pts</div>
-                  <div style={{ fontSize: 10, color: "#888780" }}>on {match.team2}</div>
-                </div>
-              </div>
-            )}
-
-            <div style={s.meta}>
-              📅 {formatDate(match.date, match.time)} &nbsp;·&nbsp; 📍 {match.venue}
-            </div>
-
-            {match.status === "upcoming" && (
-              <div style={s.btnRow}>
-                <button style={s.betBtn} onClick={() => onBetOnMatch(matchInfo)}>
-                  ⚡ Bet on this match
-                </button>
-                <button style={s.f11Btn} onClick={() => onFantasy11(matchInfo)}>
-                  🏏 Fantasy 11
-                </button>
-              </div>
-            )}
-
-            {match.status === "live" && (
-              <>
-                <div style={s.liveLockBtn}>
-                  <span style={s.liveDotBtn} />
-                  Match is Live — Betting Closed
-                </div>
-                <button style={s.f11ViewBtn} onClick={() => onFantasy11(matchInfo)}>
-                  🏏 View My Fantasy 11 (Read-Only)
-                </button>
-              </>
-            )}
-
-            {match.status === "completed" && (
-              <>
-                <button style={s.disabledBtn} disabled>Match Completed</button>
-                <button style={s.f11ViewBtn} onClick={() => onFantasy11(matchInfo)}>
-                  🏏 View My Fantasy 11
-                </button>
-              </>
-            )}
           </div>
         );
       })}
