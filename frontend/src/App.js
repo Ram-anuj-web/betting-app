@@ -3,7 +3,7 @@ import Matches from "./Matches";
 import Fantasy11 from "./Fantasy11";
 import Mines from "./Mines";
 import React, { useState, useEffect, useRef } from "react";
-import ThemeSwitcher from "./components/ThemeSwitcher";
+import ThemeSwitcher from "./ThemeSwitcher";
 import "./App.css";
 
 const API = "https://betting-backend-xq1q.onrender.com";
