@@ -3,6 +3,7 @@ import Matches from "./Matches";
 import Fantasy11 from "./Fantasy11";
 import Mines from "./Mines";
 import React, { useState, useEffect, useRef } from "react";
+import ThemeSwitcher from "./components/ThemeSwitcher";
 import "./App.css";
 
 const API = "https://betting-backend-xq1q.onrender.com";
@@ -290,6 +291,11 @@ export default function App() {
   const [matchStatus, setMatchStatus]     = useState(null);
   const [historyFilter, setHistoryFilter] = useState("all");
   const [selectedHistoryItem, setSelectedHistoryItem] = useState(null);
+  
+  useEffect(() => {
+  const saved = localStorage.getItem("fb-theme") || "dark";
+  document.documentElement.setAttribute("data-theme", saved);
+}, []);
 
   // 🆕 Count-up: only animate on home screen first load
   const [homeLoaded, setHomeLoaded] = useState(false);
@@ -660,6 +666,7 @@ export default function App() {
               <button className={screen === "mines"       ? "active" : ""} onClick={() => setScreen("mines")}>💣 Mines</button>
             </div>
             <div className="nav-right">
+              
               {/* 🆕 Nav shows real-time points (not animated — only home hero animates) */}
               <div className={`nav-points ${animatePoints ? "pulse" : ""}`}>
                 <span>💰</span>
@@ -673,6 +680,7 @@ export default function App() {
                   <span className="points-label">locked</span>
                 </div>
               )}
+              <ThemeSwitcher />
               <button className="logout-btn" onClick={handleLogout}>Logout</button>
             </div>
           </nav>

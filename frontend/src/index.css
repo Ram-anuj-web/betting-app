@@ -1,13 +1,88 @@
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;700&display=swap');
+
+/* ── THEME DEFINITIONS ───────────────────────────────────── */
+[data-theme="dark"] {
+  --bg: #080b14; --surface: #0e1320; --surface2: #141926;
+  --border: rgba(255,255,255,0.07);
+  --accent: #f0b429; --accent2: #e55a2b;
+  --text: #e8eaf0; --muted: #6b7280;
+  --green: #22c55e; --red: #ef4444;
+  --nav-bg: rgba(8,11,20,0.85);
+  --grid-color: rgba(240,180,41,0.03);
+  --glow-color: rgba(240,180,41,0.08);
+  --input-shadow: rgba(240,180,41,0.18);
+  --btn-shadow: rgba(240,180,41,0.35);
+  --sport-shadow: rgba(240,180,41,0.2);
+}
+
+[data-theme="midnight"] {
+  --bg: #060d1a; --surface: #0a1628; --surface2: #0f1e35;
+  --border: rgba(56,189,248,0.1);
+  --accent: #38bdf8; --accent2: #818cf8;
+  --text: #e0f2fe; --muted: #64748b;
+  --green: #22c55e; --red: #ef4444;
+  --nav-bg: rgba(6,13,26,0.85);
+  --grid-color: rgba(56,189,248,0.03);
+  --glow-color: rgba(56,189,248,0.06);
+  --input-shadow: rgba(56,189,248,0.15);
+  --btn-shadow: rgba(56,189,248,0.3);
+  --sport-shadow: rgba(56,189,248,0.15);
+}
+
+[data-theme="crimson"] {
+  --bg: #0e0508; --surface: #1a080a; --surface2: #220b0e;
+  --border: rgba(255,60,90,0.1);
+  --accent: #ff3c5a; --accent2: #ff8c00;
+  --text: #ffe0e5; --muted: #7a5560;
+  --green: #22c55e; --red: #ef4444;
+  --nav-bg: rgba(14,5,8,0.85);
+  --grid-color: rgba(255,60,90,0.03);
+  --glow-color: rgba(255,60,90,0.07);
+  --input-shadow: rgba(255,60,90,0.15);
+  --btn-shadow: rgba(255,60,90,0.35);
+  --sport-shadow: rgba(255,60,90,0.2);
+}
+
+[data-theme="comic"] {
+  --bg: #fff9e6; --surface: #ffffff; --surface2: #fff3cc;
+  --border: #1a1a1a;
+  --accent: #e6b800; --accent2: #ff2244;
+  --text: #1a1a1a; --muted: #555555;
+  --green: #00aa55; --red: #ff2244;
+  --nav-bg: rgba(255,249,230,0.95);
+  --grid-color: rgba(0,0,0,0.04);
+  --glow-color: rgba(230,184,0,0.1);
+  --input-shadow: rgba(230,184,0,0.25);
+  --btn-shadow: rgba(230,184,0,0.4);
+  --sport-shadow: rgba(0,0,0,0.1);
+}
+
+/* ── RESET ───────────────────────────────────────────────── */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
 body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background 0.3s, color 0.3s;
 }
 
 code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+}
+
+/* Comic Book body extras */
+[data-theme="comic"] body,
+[data-theme="comic"] .app {
+  font-family: 'DM Sans', sans-serif;
+}
+
+[data-theme="comic"] .screen-title,
+[data-theme="comic"] .hero-title,
+[data-theme="comic"] .stat-num {
+  -webkit-text-stroke: 1.5px #1a1a1a;
+  paint-order: stroke fill;
 }
