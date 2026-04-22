@@ -1,3 +1,4 @@
+import confetti from "canvas-confetti";
 import Multiplayer from "./Multiplayer";
 import Matches from "./Matches";
 import Fantasy11 from "./Fantasy11";
@@ -43,8 +44,11 @@ function useCountUp(target, duration = 1200, trigger = true) {
 
   return display;
 }
+const fireConfetti = () => {
+  confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 }, colors: ["#f0b429", "#e55a2b", "#22c55e", "#fff"] });
+  setTimeout(() => confetti({ particleCount: 80, spread: 120, origin: { y: 0.5 }, colors: ["#f0b429", "#fff"] }), 300);
+};
 
-// 🆕 Animated dots for loading button
 function LoadingDots() {
   return (
     <span className="loading-dots">
@@ -516,6 +520,7 @@ export default function App() {
         setPoints(data.points); setLockedPoints(data.lockedPoints);
         setBetPlaced({ amount, team: selectedTeam, matchLabel: prefilledMatch.matchLabel, odds: teamOdds, potentialWin: Math.floor(amount * teamOdds) });
         fetchMyBets(); fetchAllHistory(); fetchLeaderboard();
+        fireConfetti(); // 🎉
         setTimeout(() => { setBetPlaced(null); setSelectedTeam(null); setBetAmount(""); setPrefilledMatch(null); setMatchStatus(null); }, 3000);
       } else { setError(data.message || "Bet failed!"); }
     } catch (err) { setError("Can't connect to server!"); }
