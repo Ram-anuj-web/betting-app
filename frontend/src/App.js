@@ -987,7 +987,56 @@ export default function App() {
             </div>
           )}
 
-        </>
+       </>
+      )}
+
+      {/* ── MOBILE BOTTOM NAV ── */}
+      {screen !== "auth" && (
+        <nav className="bottom-nav">
+          <button
+            className={`bottom-nav-btn ${screen === "home" ? "active" : ""}`}
+            onClick={() => setScreen("home")}
+          >
+            <span className="bottom-nav-icon">🏠</span>
+            <span className="bottom-nav-label">Home</span>
+          </button>
+          <button
+            className={`bottom-nav-btn ${screen === "matches" ? "active" : ""}`}
+            onClick={() => setScreen("matches")}
+          >
+            <span className="bottom-nav-icon">🏏</span>
+            <span className="bottom-nav-label">IPL</span>
+          </button>
+          <button
+            className={`bottom-nav-btn ${screen === "fantasy11" ? "active" : ""}`}
+            onClick={() => setScreen("fantasy11")}
+          >
+            <span className="bottom-nav-icon">🏆</span>
+            <span className="bottom-nav-label">Fantasy</span>
+          </button>
+          <button
+            className={`bottom-nav-btn ${screen === "multiplayer" ? "active" : ""}`}
+            onClick={() => setScreen("multiplayer")}
+          >
+            <span className="bottom-nav-icon">⚔️</span>
+            <span className="bottom-nav-label">Multi</span>
+          </button>
+          <button
+            className={`bottom-nav-btn ${screen === "history" ? "active" : ""}`}
+            onClick={() => { fetchAllHistory(); setScreen("history"); }}
+          >
+            <span className="bottom-nav-icon">📜</span>
+            <span className="bottom-nav-label">History</span>
+            {pendingCount > 0 && <span className="bottom-nav-badge">{pendingCount}</span>}
+          </button>
+          <button
+            className={`bottom-nav-btn ${screen === "mines" ? "active" : ""}`}
+            onClick={() => setScreen("mines")}
+          >
+            <span className="bottom-nav-icon">💣</span>
+            <span className="bottom-nav-label">Mines</span>
+          </button>
+        </nav>
       )}
     </div>
   );
