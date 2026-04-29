@@ -10,13 +10,13 @@ import "./App.css";
 const API = "https://betting-backend-xq1q.onrender.com";
 
 const SPORTS = [
-  { id: "cricket",    name: "Cricket",    emoji: "🏏", teams: ["India", "Australia", "England", "Pakistan"] },
-  { id: "football",  name: "Football",   emoji: "⚽", teams: ["Real Madrid", "Barcelona", "Man City", "PSG"] },
-  { id: "basketball",name: "Basketball", emoji: "🏀", teams: ["Lakers", "Warriors", "Bulls", "Celtics"] },
-  { id: "tennis",    name: "Tennis",     emoji: "🎾", teams: ["Djokovic", "Alcaraz", "Sinner", "Medvedev"] },
+  { id: "cricket",     name: "Cricket",    emoji: "🏏", teams: ["India", "Australia", "England", "Pakistan"], available: true,  gradientFrom: "#1a2e1a", gradientTo: "#0d1a0d", accentColor: "#22c55e", glowColor: "rgba(34,197,94,0.15)",  tagline: "Live IPL Betting" },
+  { id: "football",   name: "Football",   emoji: "⚽", teams: ["Real Madrid", "Barcelona", "Man City", "PSG"], available: false, gradientFrom: "#1a1a2e", gradientTo: "#0d0d1a", accentColor: "#3b82f6", glowColor: "rgba(59,130,246,0.12)", tagline: "Premier League & More" },
+  { id: "basketball", name: "Basketball", emoji: "🏀", teams: ["Lakers", "Warriors", "Bulls", "Celtics"],      available: false, gradientFrom: "#2e1a0d", gradientTo: "#1a0d06", accentColor: "#f97316", glowColor: "rgba(249,115,22,0.12)",  tagline: "NBA Action" },
+  { id: "tennis",     name: "Tennis",     emoji: "🎾", teams: ["Djokovic", "Alcaraz", "Sinner", "Medvedev"],  available: false, gradientFrom: "#2e2a0a", gradientTo: "#1a1806", accentColor: "#eab308", glowColor: "rgba(234,179,8,0.12)",   tagline: "Grand Slams & Tours" },
 ];
 
-// 🆕 Hook: animates a number counting up from 0 to target
+// Hook: animates a number counting up from 0 to target
 function useCountUp(target, duration = 1200, trigger = true) {
   const [display, setDisplay] = useState(0);
   const rafRef = useRef(null);
@@ -32,7 +32,6 @@ function useCountUp(target, duration = 1200, trigger = true) {
     function step(now) {
       const elapsed = now - startTime;
       const progress = Math.min(elapsed / duration, 1);
-      // Ease out cubic
       const eased = 1 - Math.pow(1 - progress, 3);
       setDisplay(Math.round(start + diff * eased));
       if (progress < 1) rafRef.current = requestAnimationFrame(step);
@@ -44,6 +43,7 @@ function useCountUp(target, duration = 1200, trigger = true) {
 
   return display;
 }
+
 const fireConfetti = () => {
   confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 }, colors: ["#f0b429", "#e55a2b", "#22c55e", "#fff"] });
   setTimeout(() => confetti({ particleCount: 80, spread: 120, origin: { y: 0.5 }, colors: ["#f0b429", "#fff"] }), 300);
@@ -273,6 +273,235 @@ function DetailModal({ item, onClose }) {
   );
 }
 
+// ── NEW: Points Progress Bar Component ──────────────────────────────────────
+function PointsProgressCard({ points, lockedPoints, allHistory }) {
+  const LEVEL_THRESHOLDS = [
+    { level: 1, label: "Rookie",    min: 0,     max: 2000,  color: "#888780" },
+    { level: 2, label: "Bettor",    min: 2000,  max: 5000,  color: "#3b82f6" },
+    { level: 3, label: "Hustler",   min: 5000,  max: 10000, color: "#8b5cf6" },
+    { level: 4, label: "Sharpie",   min: 10000, max: 20000, color: "#f97316" },
+    { level: 5, label: "Legend",    min: 20000, max: 50000, color: "#eab308" },
+    { level: 6, label: "Immortal",  min: 50000, max: Infinity, color: "#e11d48" },
+  ];
+
+  const currentTier = LEVEL_THRESHOLDS.find(t => points >= t.min && points < t.max) || LEVEL_THRESHOLDS[0];
+  const nextTier    = LEVEL_THRESHOLDS[currentTier.level] || null;
+  const progressPct = nextTier
+    ? Math.min(((points - currentTier.min) / (nextTier.min - currentTier.min)) * 100, 100)
+    : 100;
+
+  const wins    = allHistory.filter(b => b.status === "won").length;
+  const losses  = allHistory.filter(b => b.status === "lost").length;
+  const winRate = allHistory.length > 0 ? Math.round((wins / allHistory.length) * 100) : 0;
+
+  return (
+    <div style={{
+      background: "linear-gradient(135deg, rgba(244,196,48,0.07) 0%, rgba(30,29,43,0.9) 100%)",
+      border: "1px solid rgba(244,196,48,0.2)",
+      borderRadius: 16,
+      padding: "20px 22px",
+      marginBottom: 28,
+      position: "relative",
+      overflow: "hidden",
+    }}>
+      {/* decorative glow orb */}
+      <div style={{
+        position: "absolute", top: -30, right: -30, width: 120, height: 120,
+        borderRadius: "50%", background: `${currentTier.color}22`, pointerEvents: "none",
+      }} />
+
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 14 }}>
+        <div>
+          <div style={{ fontSize: 11, color: "#888", letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 4 }}>Your Balance</div>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+            <span style={{ fontSize: 32, fontWeight: 800, color: "#f4c430", lineHeight: 1 }}>
+              {points.toLocaleString()}
+            </span>
+            <span style={{ fontSize: 13, color: "#888", fontWeight: 500 }}>pts</span>
+          </div>
+          {lockedPoints > 0 && (
+            <div style={{ fontSize: 12, color: "#BA7517", marginTop: 4 }}>
+              🔒 {lockedPoints.toLocaleString()} locked in active bets
+            </div>
+          )}
+        </div>
+        <div style={{
+          background: `${currentTier.color}22`,
+          border: `1px solid ${currentTier.color}55`,
+          borderRadius: 10,
+          padding: "6px 14px",
+          textAlign: "center",
+        }}>
+          <div style={{ fontSize: 10, color: currentTier.color, letterSpacing: "0.06em", textTransform: "uppercase", fontWeight: 700 }}>Level {currentTier.level}</div>
+          <div style={{ fontSize: 15, fontWeight: 800, color: currentTier.color, marginTop: 1 }}>{currentTier.label}</div>
+        </div>
+      </div>
+
+      {/* Progress bar */}
+      {nextTier && (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+            <span style={{ fontSize: 11, color: "#666" }}>{currentTier.label}</span>
+            <span style={{ fontSize: 11, color: "#666" }}>
+              {(nextTier.min - points).toLocaleString()} pts to {nextTier.label}
+            </span>
+          </div>
+          <div style={{ height: 8, background: "rgba(255,255,255,0.07)", borderRadius: 99, overflow: "hidden" }}>
+            <div style={{
+              height: "100%",
+              width: `${progressPct}%`,
+              background: `linear-gradient(90deg, ${currentTier.color}99, ${currentTier.color})`,
+              borderRadius: 99,
+              transition: "width 1s cubic-bezier(0.34,1.56,0.64,1)",
+            }} />
+          </div>
+        </div>
+      )}
+
+      {/* Mini stats row */}
+      <div style={{ display: "flex", gap: 10 }}>
+        {[
+          { label: "Total Bets", value: allHistory.length, color: "#7F77DD" },
+          { label: "Wins",       value: wins,              color: "#1D9E75" },
+          { label: "Win Rate",   value: `${winRate}%`,     color: "#f4c430" },
+          { label: "Pending",    value: allHistory.filter(b => b.status === "pending" || b.status === "active").length, color: "#BA7517" },
+        ].map(stat => (
+          <div key={stat.label} style={{
+            flex: 1,
+            background: "rgba(255,255,255,0.04)",
+            border: "1px solid rgba(255,255,255,0.07)",
+            borderRadius: 10,
+            padding: "8px 10px",
+            textAlign: "center",
+          }}>
+            <div style={{ fontSize: 16, fontWeight: 800, color: stat.color }}>{stat.value}</div>
+            <div style={{ fontSize: 10, color: "#666", marginTop: 2 }}>{stat.label}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── NEW: Featured Match Banner ───────────────────────────────────────────────
+function FeaturedMatchBanner({ onBetClick, onFantasyClick }) {
+  return (
+    <div style={{
+      background: "linear-gradient(135deg, #0f2e1a 0%, #1a3a20 50%, #0d2616 100%)",
+      border: "1px solid rgba(34,197,94,0.25)",
+      borderRadius: 16,
+      padding: "20px 22px",
+      marginBottom: 20,
+      position: "relative",
+      overflow: "hidden",
+    }}>
+      {/* background pattern dots */}
+      <div style={{
+        position: "absolute", inset: 0, opacity: 0.04,
+        backgroundImage: "radial-gradient(circle, #22c55e 1px, transparent 1px)",
+        backgroundSize: "20px 20px",
+        pointerEvents: "none",
+      }} />
+      <div style={{
+        display: "inline-flex", alignItems: "center", gap: 6,
+        background: "rgba(34,197,94,0.15)", border: "1px solid rgba(34,197,94,0.3)",
+        borderRadius: 99, padding: "3px 10px", marginBottom: 12,
+      }}>
+        <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", display: "inline-block", boxShadow: "0 0 6px #22c55e" }} />
+        <span style={{ fontSize: 10, color: "#22c55e", fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase" }}>Featured Match</span>
+      </div>
+      <div style={{ fontSize: 18, fontWeight: 800, color: "#fff", marginBottom: 4 }}>🏏 IPL 2025 Season</div>
+      <div style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", marginBottom: 16 }}>Live matches • Fantasy 11 • Contests</div>
+      <div style={{ display: "flex", gap: 10 }}>
+        <button
+          onClick={onBetClick}
+          style={{
+            flex: 1, padding: "10px 0", borderRadius: 10, border: "none",
+            background: "linear-gradient(135deg,#16a34a,#22c55e)", color: "#fff",
+            fontWeight: 700, fontSize: 13, cursor: "pointer",
+          }}
+        >
+          🎯 Bet Now
+        </button>
+        <button
+          onClick={onFantasyClick}
+          style={{
+            flex: 1, padding: "10px 0", borderRadius: 10,
+            border: "1px solid rgba(34,197,94,0.4)", background: "rgba(34,197,94,0.08)",
+            color: "#22c55e", fontWeight: 700, fontSize: 13, cursor: "pointer",
+          }}
+        >
+          🏆 Fantasy 11
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── NEW: Recent Activity Feed ────────────────────────────────────────────────
+function RecentActivityFeed({ allHistory }) {
+  const recent = allHistory.slice(0, 5);
+
+  const statusColor = (s) => ({
+    won: "#1D9E75", lost: "#E24B4A", draw: "#888780",
+    refund: "#185FA5", refunded: "#185FA5",
+    active: "#7F77DD", cancelled: "#888780", settled: "#3C3489",
+  }[s] || "#BA7517");
+
+  const statusEmoji = (s) => ({
+    won: "🏆", lost: "😢", draw: "🤝",
+    refund: "🔄", refunded: "🔄",
+    active: "⚡", cancelled: "❌", settled: "✅",
+  }[s] || "⏳");
+
+  if (recent.length === 0) return null;
+
+  return (
+    <div style={{ marginBottom: 28 }}>
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        marginBottom: 12,
+      }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.07em" }}>
+          Recent Activity
+        </div>
+        <div style={{ fontSize: 11, color: "#555" }}>Last {recent.length} entries</div>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {recent.map((item) => (
+          <div key={`${item.type}-${item._id}`} style={{
+            display: "flex", alignItems: "center", gap: 12,
+            background: "rgba(255,255,255,0.03)",
+            border: "1px solid rgba(255,255,255,0.06)",
+            borderLeft: `3px solid ${statusColor(item.status)}`,
+            borderRadius: 10,
+            padding: "10px 14px",
+          }}>
+            <span style={{ fontSize: 18, flexShrink: 0 }}>{statusEmoji(item.status)}</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#ddd", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {item.matchLabel}
+              </div>
+              <div style={{ fontSize: 11, color: "#666", marginTop: 2 }}>
+                {item.typeEmoji} {item.typeLabel}
+                {item.type !== "fantasy11" && item.team && item.team !== "—" && ` · ${item.team}`}
+              </div>
+            </div>
+            <div style={{
+              fontSize: 12, fontWeight: 700, color: statusColor(item.status),
+              background: `${statusColor(item.status)}18`,
+              padding: "3px 10px", borderRadius: 99, flexShrink: 0,
+              border: `1px solid ${statusColor(item.status)}33`,
+            }}>
+              {item.status.toUpperCase()}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [screen, setScreen]               = useState("auth");
   const [authMode, setAuthMode]           = useState("login");
@@ -295,26 +524,22 @@ export default function App() {
   const [matchStatus, setMatchStatus]     = useState(null);
   const [historyFilter, setHistoryFilter] = useState("all");
   const [selectedHistoryItem, setSelectedHistoryItem] = useState(null);
-  
-  useEffect(() => {
-  const saved = localStorage.getItem("fb-theme") || "dark";
-  document.documentElement.setAttribute("data-theme", saved);
-}, []);
 
-  // 🆕 Count-up: only animate on home screen first load
+  useEffect(() => {
+    const saved = localStorage.getItem("fb-theme") || "dark";
+    document.documentElement.setAttribute("data-theme", saved);
+  }, []);
+
   const [homeLoaded, setHomeLoaded] = useState(false);
   const displayPoints = useCountUp(points, 1400, screen === "home" && !homeLoaded);
 
   useEffect(() => {
     if (screen === "home" && !homeLoaded) {
-      // After first count-up finishes, mark loaded so subsequent point changes
-      // don't re-animate from 0 (just snap to new value)
       const t = setTimeout(() => setHomeLoaded(true), 1600);
       return () => clearTimeout(t);
     }
   }, [screen]);
 
-  // Reset homeLoaded on logout so next login re-animates
   const resetHome = () => setHomeLoaded(false);
 
   useEffect(() => { window.history.pushState({ screen }, "", ""); }, [screen]);
@@ -382,10 +607,8 @@ export default function App() {
         const totalPot = c.entryFee * (c.participants?.length || 1);
         const winnerStr = c.winner || "";
         const winners  = winnerStr ? winnerStr.split(", ").filter(Boolean) : [];
-
         const isRefund = winnerStr === "refund" || winnerStr === "no_scores" || winnerStr === "";
         const isSolo   = (c.participants?.length || 0) === 1 && c.participants?.[0]?.username === username;
-
         let status = "pending";
         if (c.status === "settled") {
           if (isRefund || isSolo) status = "refund";
@@ -393,10 +616,8 @@ export default function App() {
           else status = "lost";
         }
         if (c.status === "cancelled") status = "cancelled";
-
         const winnerCount = winners.length || 1;
         const prize = status === "won" ? Math.floor(totalPot / winnerCount) : 0;
-
         return {
           _id: c._id, type: "contest", typeLabel: "Contest", typeEmoji: "🏆",
           matchLabel: c.matchLabel, team: myEntry?.team || "—",
@@ -496,7 +717,7 @@ export default function App() {
 
   const placeBet = async () => {
     if (matchStatus === "live")      { setError("Betting is closed — this match has already started!"); return; }
-    if (matchStatus === "completed") { setError("Betting is closed — this match has already ended!");   return; }
+    if (matchStatus === "completed") { setError("Betting is closed — this match has already ended!"); return; }
     const amount = parseInt(betAmount);
     if (!amount || amount <= 0 || amount > points) return;
     if (!selectedTeam)   { setError("Please pick a team!"); return; }
@@ -520,7 +741,7 @@ export default function App() {
         setPoints(data.points); setLockedPoints(data.lockedPoints);
         setBetPlaced({ amount, team: selectedTeam, matchLabel: prefilledMatch.matchLabel, odds: teamOdds, potentialWin: Math.floor(amount * teamOdds) });
         fetchMyBets(); fetchAllHistory(); fetchLeaderboard();
-        fireConfetti(); // 🎉
+        fireConfetti();
         setTimeout(() => { setBetPlaced(null); setSelectedTeam(null); setBetAmount(""); setPrefilledMatch(null); setMatchStatus(null); }, 3000);
       } else { setError(data.message || "Bet failed!"); }
     } catch (err) { setError("Can't connect to server!"); }
@@ -531,7 +752,7 @@ export default function App() {
     setUsername(""); setInputName(""); setInputPassword(""); setPoints(1000); setLockedPoints(0);
     setMyBets([]); setAllHistory([]); setLeaderboard([]);
     setScreen("auth"); setAuthMode("login"); setPrefilledMatch(null); setMatchStatus(null);
-    resetHome(); // 🆕 reset so next login re-animates count-up
+    resetHome();
   };
 
   const statusColor = (s) => ({
@@ -644,7 +865,6 @@ export default function App() {
             <input className="login-input" type="password" placeholder="Password" value={inputPassword}
               onChange={e => setInputPassword(e.target.value)} onKeyDown={e => e.key === "Enter" && handleAuth()} />
             {error && <div className="error-msg">{error}</div>}
-            {/* 🆕 Loading dots instead of "Loading..." text */}
             <button className="btn-primary" onClick={handleAuth} disabled={loading}>
               {loading ? <LoadingDots /> : authMode === "login" ? "Login →" : "Create Account →"}
             </button>
@@ -671,8 +891,6 @@ export default function App() {
               <button className={screen === "mines"       ? "active" : ""} onClick={() => setScreen("mines")}>💣 Mines</button>
             </div>
             <div className="nav-right">
-              
-              {/* 🆕 Nav shows real-time points (not animated — only home hero animates) */}
               <div className={`nav-points ${animatePoints ? "pulse" : ""}`}>
                 <span>💰</span>
                 <span className="points-value">{points.toLocaleString()}</span>
@@ -696,7 +914,6 @@ export default function App() {
               <div className="hero">
                 <div className="hero-badge">🏆 FANTASY SPORTS BETTING</div>
                 <h1 className="hero-title">Welcome,<br /><span className="accent">{username}!</span></h1>
-                {/* 🆕 Points count-up animation */}
                 <p className="hero-sub">
                   You have <strong>{displayPoints.toLocaleString()} points</strong> available
                   {lockedPoints > 0 && <span> · <span style={{ color: "#BA7517" }}>🔒 {lockedPoints} locked</span></span>}
@@ -708,26 +925,119 @@ export default function App() {
                   <button className="btn-primary" onClick={() => setScreen("mines")} style={{ background: "#E24B4A" }}>💣 Mines →</button>
                 </div>
               </div>
+
+              {/* ── IMPROVEMENT 4: Points Progress Card (replaces flat stats row) ── */}
+              <PointsProgressCard
+                points={points}
+                lockedPoints={lockedPoints}
+                allHistory={allHistory}
+              />
+
+              {/* ── IMPROVEMENT 3: Featured Match Banner ── */}
+              <FeaturedMatchBanner
+                onBetClick={() => setScreen("matches")}
+                onFantasyClick={() => setScreen("fantasy11")}
+              />
+
+              {/* ── IMPROVEMENT 1 & 2: Redesigned Sport Cards ── */}
               <div className="sports-grid">
                 {SPORTS.map(sport => (
-                  <div key={sport.id} className="sport-card"
-                    onClick={() => { if (sport.id === "cricket") setScreen("matches"); else alert(`🚧 ${sport.name} — Coming Soon!`); }}
-                    style={sport.id !== "cricket" ? { opacity: 0.6, cursor: "not-allowed" } : {}}
+                  <div
+                    key={sport.id}
+                    className="sport-card"
+                    onClick={() => {
+                      if (sport.available) setScreen("matches");
+                    }}
+                    style={{
+                      background: `linear-gradient(145deg, ${sport.gradientFrom} 0%, ${sport.gradientTo} 100%)`,
+                      border: `1px solid ${sport.accentColor}33`,
+                      boxShadow: sport.available ? `0 4px 24px ${sport.glowColor}` : "none",
+                      cursor: sport.available ? "pointer" : "default",
+                      opacity: sport.available ? 1 : 0.75,
+                      position: "relative",
+                      overflow: "hidden",
+                      transition: "transform 0.18s, box-shadow 0.18s",
+                    }}
+                    onMouseEnter={e => {
+                      if (sport.available) {
+                        e.currentTarget.style.transform = "translateY(-3px)";
+                        e.currentTarget.style.boxShadow = `0 8px 32px ${sport.glowColor}`;
+                      }
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.transform = "translateY(0)";
+                      e.currentTarget.style.boxShadow = sport.available ? `0 4px 24px ${sport.glowColor}` : "none";
+                    }}
                   >
-                    <span className="sport-emoji">{sport.emoji}</span>
-                    <span className="sport-name">{sport.name}</span>
-                    {sport.id === "cricket"
-                      ? <span className="sport-arrow">→</span>
-                      : <span style={{ fontSize: 11, color: "#BA7517", fontWeight: 600, marginTop: 4 }}>🚧 Coming Soon</span>
-                    }
+                    {/* subtle grid texture overlay */}
+                    <div style={{
+                      position: "absolute", inset: 0, opacity: 0.05,
+                      backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)",
+                      backgroundSize: "16px 16px",
+                      pointerEvents: "none",
+                    }} />
+
+                    {/* accent bar at top */}
+                    <div style={{
+                      position: "absolute", top: 0, left: 0, right: 0, height: 3,
+                      background: sport.available
+                        ? `linear-gradient(90deg, ${sport.accentColor}88, ${sport.accentColor})`
+                        : "rgba(255,255,255,0.1)",
+                      borderRadius: "12px 12px 0 0",
+                    }} />
+
+                    <span className="sport-emoji" style={{ fontSize: 36, display: "block", marginBottom: 8, position: "relative" }}>
+                      {sport.emoji}
+                    </span>
+                    <span className="sport-name" style={{ position: "relative", color: "#fff", fontWeight: 700 }}>
+                      {sport.name}
+                    </span>
+                    <span style={{
+                      display: "block", fontSize: 11, color: sport.available ? `${sport.accentColor}cc` : "rgba(255,255,255,0.3)",
+                      marginTop: 3, position: "relative",
+                    }}>
+                      {sport.tagline}
+                    </span>
+
+                    {/* ── IMPROVEMENT 2: Intentional Coming Soon badge OR arrow ── */}
+                    {sport.available ? (
+                      <div style={{
+                        marginTop: 12, display: "inline-flex", alignItems: "center", gap: 5,
+                        background: `${sport.accentColor}22`,
+                        border: `1px solid ${sport.accentColor}44`,
+                        borderRadius: 99, padding: "4px 12px",
+                        fontSize: 11, color: sport.accentColor, fontWeight: 700,
+                        position: "relative",
+                      }}>
+                        Play Now →
+                      </div>
+                    ) : (
+                      <div style={{
+                        marginTop: 12, display: "inline-flex", alignItems: "center", gap: 5,
+                        background: "rgba(255,255,255,0.05)",
+                        border: "1px solid rgba(255,255,255,0.12)",
+                        borderRadius: 99, padding: "4px 12px",
+                        fontSize: 11, fontWeight: 700,
+                        color: "rgba(255,255,255,0.35)",
+                        position: "relative",
+                        letterSpacing: "0.04em",
+                      }}>
+                        <span style={{
+                          width: 6, height: 6, borderRadius: "50%",
+                          background: "rgba(255,255,255,0.3)",
+                          display: "inline-block", flexShrink: 0,
+                        }} />
+                        Coming Soon
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
-              <div className="stats-row">
-                <div className="stat-box"><div className="stat-num">{allHistory.length}</div><div className="stat-label">Total Bets</div></div>
-                <div className="stat-box"><div className="stat-num">{allHistory.filter(b => b.status === "won").length}</div><div className="stat-label">Wins</div></div>
-                <div className="stat-box"><div className="stat-num">{allHistory.filter(b => b.status === "pending" || b.status === "active").length}</div><div className="stat-label">Pending</div></div>
-              </div>
+
+              {/* ── IMPROVEMENT 3: Recent Activity Feed ── */}
+              {allHistory.length > 0 && (
+                <RecentActivityFeed allHistory={allHistory} />
+              )}
             </div>
           )}
 
@@ -991,53 +1301,34 @@ export default function App() {
               <Mines username={username} points={points} setPoints={setPoints} />
             </div>
           )}
-
-       </>
+        </>
       )}
 
       {/* ── MOBILE BOTTOM NAV ── */}
       {screen !== "auth" && (
         <nav className="bottom-nav">
-          <button
-            className={`bottom-nav-btn ${screen === "home" ? "active" : ""}`}
-            onClick={() => setScreen("home")}
-          >
+          <button className={`bottom-nav-btn ${screen === "home" ? "active" : ""}`} onClick={() => setScreen("home")}>
             <span className="bottom-nav-icon">🏠</span>
             <span className="bottom-nav-label">Home</span>
           </button>
-          <button
-            className={`bottom-nav-btn ${screen === "matches" ? "active" : ""}`}
-            onClick={() => setScreen("matches")}
-          >
+          <button className={`bottom-nav-btn ${screen === "matches" ? "active" : ""}`} onClick={() => setScreen("matches")}>
             <span className="bottom-nav-icon">🏏</span>
             <span className="bottom-nav-label">IPL</span>
           </button>
-          <button
-            className={`bottom-nav-btn ${screen === "fantasy11" ? "active" : ""}`}
-            onClick={() => setScreen("fantasy11")}
-          >
+          <button className={`bottom-nav-btn ${screen === "fantasy11" ? "active" : ""}`} onClick={() => setScreen("fantasy11")}>
             <span className="bottom-nav-icon">🏆</span>
             <span className="bottom-nav-label">Fantasy</span>
           </button>
-          <button
-            className={`bottom-nav-btn ${screen === "multiplayer" ? "active" : ""}`}
-            onClick={() => setScreen("multiplayer")}
-          >
+          <button className={`bottom-nav-btn ${screen === "multiplayer" ? "active" : ""}`} onClick={() => setScreen("multiplayer")}>
             <span className="bottom-nav-icon">⚔️</span>
             <span className="bottom-nav-label">Multi</span>
           </button>
-          <button
-            className={`bottom-nav-btn ${screen === "history" ? "active" : ""}`}
-            onClick={() => { fetchAllHistory(); setScreen("history"); }}
-          >
+          <button className={`bottom-nav-btn ${screen === "history" ? "active" : ""}`} onClick={() => { fetchAllHistory(); setScreen("history"); }}>
             <span className="bottom-nav-icon">📜</span>
             <span className="bottom-nav-label">History</span>
             {pendingCount > 0 && <span className="bottom-nav-badge">{pendingCount}</span>}
           </button>
-          <button
-            className={`bottom-nav-btn ${screen === "mines" ? "active" : ""}`}
-            onClick={() => setScreen("mines")}
-          >
+          <button className={`bottom-nav-btn ${screen === "mines" ? "active" : ""}`} onClick={() => setScreen("mines")}>
             <span className="bottom-nav-icon">💣</span>
             <span className="bottom-nav-label">Mines</span>
           </button>
