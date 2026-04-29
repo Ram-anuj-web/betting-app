@@ -3,9 +3,141 @@ import Multiplayer from "./Multiplayer";
 import Matches from "./Matches";
 import Fantasy11 from "./Fantasy11";
 import Mines from "./Mines";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import ThemeSwitcher from "./ThemeSwitcher";
 import "./App.css";
+
+// ── TOAST SYSTEM ─────────────────────────────────────────────────────────────
+// Each toast: { id, message, type: "success"|"error"|"info"|"warning", emoji }
+function ToastContainer({ toasts, onRemove }) {
+  return (
+    <div style={{
+      position: "fixed", top: 70, right: 16, zIndex: 99999,
+      display: "flex", flexDirection: "column", gap: 10,
+      pointerEvents: "none",
+    }}>
+      {toasts.map(t => (
+        <Toast key={t.id} toast={t} onRemove={onRemove} />
+      ))}
+    </div>
+  );
+}
+
+function Toast({ toast, onRemove }) {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    // mount → slide in
+    const show = setTimeout(() => setVisible(true), 10);
+    // auto-dismiss
+    const hide = setTimeout(() => {
+      setVisible(false);
+      setTimeout(() => onRemove(toast.id), 320);
+    }, toast.duration || 3500);
+    return () => { clearTimeout(show); clearTimeout(hide); };
+  }, []);
+
+  const colors = {
+    success: { bg: "#0d2b1f", border: "#1D9E75", text: "#22c55e", bar: "#1D9E75" },
+    error:   { bg: "#2b0d0d", border: "#E24B4A", text: "#f87171", bar: "#E24B4A" },
+    info:    { bg: "#0d1a2b", border: "#3b82f6", text: "#60a5fa", bar: "#3b82f6" },
+    warning: { bg: "#2b1e0d", border: "#f4c430", text: "#fbbf24", bar: "#f4c430" },
+  };
+  const c = colors[toast.type] || colors.info;
+
+  return (
+    <div style={{
+      background: c.bg,
+      border: `1px solid ${c.border}55`,
+      borderLeft: `3px solid ${c.border}`,
+      borderRadius: 12,
+      padding: "12px 16px",
+      minWidth: 260,
+      maxWidth: 340,
+      pointerEvents: "all",
+      cursor: "pointer",
+      transform: visible ? "translateX(0)" : "translateX(120%)",
+      opacity: visible ? 1 : 0,
+      transition: "transform 0.32s cubic-bezier(0.34,1.56,0.64,1), opacity 0.32s ease",
+      boxShadow: `0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px ${c.border}22`,
+      position: "relative",
+      overflow: "hidden",
+    }} onClick={() => { setVisible(false); setTimeout(() => onRemove(toast.id), 320); }}>
+      {/* progress bar */}
+      <div style={{
+        position: "absolute", bottom: 0, left: 0, height: 2,
+        background: c.bar, borderRadius: "0 0 0 12px",
+        animation: `toastProgress ${toast.duration || 3500}ms linear forwards`,
+      }} />
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+        <span style={{ fontSize: 18, flexShrink: 0, lineHeight: 1.3 }}>{toast.emoji}</span>
+        <div>
+          {toast.title && (
+            <div style={{ fontSize: 13, fontWeight: 700, color: c.text, marginBottom: 2 }}>{toast.title}</div>
+          )}
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", lineHeight: 1.5 }}>{toast.message}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function useToast() {
+  const [toasts, setToasts] = useState([]);
+  const remove = useCallback((id) => setToasts(prev => prev.filter(t => t.id !== id)), []);
+  const add = useCallback((opts) => {
+    const id = Date.now() + Math.random();
+    setToasts(prev => [...prev.slice(-4), { id, ...opts }]);
+  }, []);
+  const toast = {
+    success: (title, message, duration) => add({ type: "success", emoji: "✅", title, message, duration }),
+    error:   (title, message, duration) => add({ type: "error",   emoji: "❌", title, message, duration }),
+    info:    (title, message, duration) => add({ type: "info",    emoji: "ℹ️",  title, message, duration }),
+    warning: (title, message, duration) => add({ type: "warning", emoji: "⚠️", title, message, duration }),
+    bet:     (message, duration)        => add({ type: "success", emoji: "🔒", title: "Bet Locked!", message, duration }),
+    win:     (message, duration)        => add({ type: "success", emoji: "🏆", title: "You Won!", message, duration }),
+    points:  (message, duration)        => add({ type: "warning", emoji: "💰", title: "Points Updated", message, duration }),
+  };
+  return { toasts, remove, toast };
+}
+
+// ── FLOATING POINTS ANIMATION ────────────────────────────────────────────────
+function FloatingPoints({ floaters, navRef }) {
+  return (
+    <>
+      {floaters.map(f => (
+        <div key={f.id} style={{
+          position: "fixed",
+          top: f.y,
+          right: f.x,
+          zIndex: 99998,
+          pointerEvents: "none",
+          fontSize: 16,
+          fontWeight: 800,
+          color: f.positive ? "#22c55e" : "#f87171",
+          textShadow: f.positive ? "0 0 12px rgba(34,197,94,0.8)" : "0 0 12px rgba(248,113,113,0.8)",
+          animation: "floatUp 1.6s cubic-bezier(0.16,1,0.3,1) forwards",
+          whiteSpace: "nowrap",
+        }}>
+          {f.positive ? "+" : ""}{f.amount.toLocaleString()} pts
+        </div>
+      ))}
+    </>
+  );
+}
+
+function useFloatingPoints() {
+  const [floaters, setFloaters] = useState([]);
+  const fire = useCallback((amount) => {
+    const id = Date.now() + Math.random();
+    // anchor near top-right navbar points display
+    const x = 80 + Math.random() * 40;
+    const y = 60 + Math.random() * 10;
+    setFloaters(prev => [...prev.slice(-6), { id, amount, positive: amount > 0, x, y }]);
+    setTimeout(() => setFloaters(prev => prev.filter(f => f.id !== id)), 1800);
+  }, []);
+  return { floaters, fire };
+}
 
 const API = "https://betting-backend-xq1q.onrender.com";
 
@@ -503,6 +635,9 @@ function RecentActivityFeed({ allHistory }) {
 }
 
 export default function App() {
+  const { toasts, remove: removeToast, toast } = useToast();
+  const { floaters, fire: fireFloat } = useFloatingPoints();
+
   const [screen, setScreen]               = useState("auth");
   const [authMode, setAuthMode]           = useState("login");
   const [username, setUsername]           = useState("");
@@ -696,9 +831,16 @@ export default function App() {
       const data = await res.json();
       if (res.ok) {
         setUsername(data.name); setPoints(data.points); setLockedPoints(data.lockedPoints || 0);
+        toast.success("Welcome back!", `Logged in as ${data.name} · ${data.points.toLocaleString()} pts`, 3000);
         setScreen("home"); fetchLeaderboard();
-      } else { setError(data.message || "Something went wrong!"); }
-    } catch (err) { setError("Can't connect to server. Make sure backend is running!"); }
+      } else {
+        setError(data.message || "Something went wrong!");
+        toast.error("Login Failed", data.message || "Check your credentials.");
+      }
+    } catch (err) {
+      setError("Can't connect to server. Make sure backend is running!");
+      toast.error("Connection Failed", "Can't reach the server. Check your connection.");
+    }
     setLoading(false);
   };
 
@@ -716,11 +858,11 @@ export default function App() {
   };
 
   const placeBet = async () => {
-    if (matchStatus === "live")      { setError("Betting is closed — this match has already started!"); return; }
-    if (matchStatus === "completed") { setError("Betting is closed — this match has already ended!"); return; }
+    if (matchStatus === "live")      { setError("Betting is closed — this match has already started!"); toast.warning("Bets Locked", "This match has already started."); return; }
+    if (matchStatus === "completed") { setError("Betting is closed — this match has already ended!"); toast.warning("Bets Locked", "This match has already ended."); return; }
     const amount = parseInt(betAmount);
     if (!amount || amount <= 0 || amount > points) return;
-    if (!selectedTeam)   { setError("Please pick a team!"); return; }
+    if (!selectedTeam)   { setError("Please pick a team!"); toast.error("Pick a Team", "Select a team before placing your bet."); return; }
     if (!prefilledMatch) { setError("Please go to 🏏 IPL tab and click Bet Now on a match first!"); return; }
     setLoading(true); setError("");
     try {
@@ -738,13 +880,23 @@ export default function App() {
       const data = await res.json();
       if (res.ok) {
         setAnimatePoints(true); setTimeout(() => setAnimatePoints(false), 1000);
+        const prevPoints = points;
         setPoints(data.points); setLockedPoints(data.lockedPoints);
+        // floating points — show locked amount as negative (points deducted)
+        fireFloat(-(amount));
+        toast.bet(`${amount} pts on ${selectedTeam} · ${prefilledMatch.matchLabel}`, 4000);
         setBetPlaced({ amount, team: selectedTeam, matchLabel: prefilledMatch.matchLabel, odds: teamOdds, potentialWin: Math.floor(amount * teamOdds) });
         fetchMyBets(); fetchAllHistory(); fetchLeaderboard();
         fireConfetti();
         setTimeout(() => { setBetPlaced(null); setSelectedTeam(null); setBetAmount(""); setPrefilledMatch(null); setMatchStatus(null); }, 3000);
-      } else { setError(data.message || "Bet failed!"); }
-    } catch (err) { setError("Can't connect to server!"); }
+      } else {
+        setError(data.message || "Bet failed!");
+        toast.error("Bet Failed", data.message || "Something went wrong. Try again.");
+      }
+    } catch (err) {
+      setError("Can't connect to server!");
+      toast.error("Connection Error", "Can't reach the server. Try again.");
+    }
     setLoading(false);
   };
 
@@ -752,6 +904,7 @@ export default function App() {
     setUsername(""); setInputName(""); setInputPassword(""); setPoints(1000); setLockedPoints(0);
     setMyBets([]); setAllHistory([]); setLeaderboard([]);
     setScreen("auth"); setAuthMode("login"); setPrefilledMatch(null); setMatchStatus(null);
+    toast.info("Logged out", "See you next time! 👋", 2500);
     resetHome();
   };
 
@@ -829,6 +982,25 @@ export default function App() {
 
   return (
     <div className="app">
+      {/* ── Global animation keyframes ── */}
+      <style>{`
+        @keyframes floatUp {
+          0%   { transform: translateY(0) scale(1);   opacity: 1; }
+          60%  { transform: translateY(-52px) scale(1.1); opacity: 1; }
+          100% { transform: translateY(-80px) scale(0.9); opacity: 0; }
+        }
+        @keyframes toastProgress {
+          from { width: 100%; }
+          to   { width: 0%; }
+        }
+      `}</style>
+
+      {/* ── Toast notifications ── */}
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
+
+      {/* ── Floating points ── */}
+      <FloatingPoints floaters={floaters} />
+
       <div className="bg-grid" />
       <div className="bg-glow" />
 
