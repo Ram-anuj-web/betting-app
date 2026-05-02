@@ -1507,6 +1507,8 @@ export default function App() {
           </button>
         </nav>
       )}
+        {/* ── THEME MUSIC PLAYER ── */}
+      {screen !== "auth" && <ThemeMusicPlayer />}
     </div>
   );
 }
