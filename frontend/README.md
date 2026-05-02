@@ -1,70 +1,140 @@
-# Getting Started with Create React App
+# ⚡ FantasyBet — IPL Betting & Fantasy Sports Platform
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+> A full-stack fantasy sports betting platform built for IPL cricket fans. Place bets, build Fantasy 11 squads, compete in multiplayer contests, and play Mines — all in one app.
 
-## Available Scripts
+🌐 **Live Demo:** [betting-app-omega.vercel.app](https://betting-app-omega.vercel.app)
 
-In the project directory, you can run:
+---
 
-### `npm start`
+## 🚀 Features
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+- 🏏 **Live IPL Betting** — Bet on real IPL matches with live odds
+- 🏆 **Fantasy 11** — Pick your dream squad, assign Captain & Vice-Captain
+- ⚔️ **Multiplayer Contests** — Create public/private contests and challenge friends
+- 💣 **Mines Game** — Risk your points in a Minesweeper-style mini game
+- 🎵 **Theme Music Player** — Epic background music while you bet
+- 🏅 **Leaderboard** — Compete with all players globally
+- 📜 **Bet History** — Track all your bets, contests, and fantasy results
+- 🎨 **Theme Switcher** — Dark/light mode support
+- 🔔 **Toast Notifications** — Real-time feedback on every action
+- 📱 **Mobile Responsive** — Full bottom nav for mobile users
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+---
 
-### `npm test`
+## 🛠️ Tech Stack
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+| Frontend | Backend | Database | Deployment |
+|----------|---------|----------|------------|
+| React.js | Node.js | MongoDB  | Vercel (FE) |
+| CSS3 | Express.js | Mongoose | Render (BE) |
+| canvas-confetti | REST API | | |
 
-### `npm run build`
+---
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## 📁 Project Structure
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+```
+betting-app/
+├── frontend/          # React app
+│   ├── public/
+│   │   └── audio/     # Theme music tracks
+│   └── src/
+│       ├── components/
+│       │   └── ThemeMusicPlayer.jsx
+│       ├── App.js
+│       ├── Matches.jsx
+│       ├── Fantasy11.jsx
+│       ├── Multiplayer.jsx
+│       ├── Mines.jsx
+│       └── ThemeSwitcher.jsx
+└── backend/           # Express API server
+```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+---
 
-### `npm run eject`
+## ⚙️ Getting Started
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+### Prerequisites
+- Node.js v18+
+- MongoDB Atlas account
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+### 1. Clone the repo
+```bash
+git clone https://github.com/Ram-anuj-web/betting-app.git
+cd betting-app
+```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+### 2. Setup Frontend
+```bash
+cd frontend
+npm install
+```
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+Create a `.env` file in `/frontend`:
+```
+REACT_APP_API_URL=http://localhost:5000
+```
 
-## Learn More
+```bash
+npm start
+```
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+### 3. Setup Backend
+```bash
+cd backend
+npm install
+```
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+Create a `.env` file in `/backend`:
+```
+MONGODB_URI=your_mongodb_connection_string
+PORT=5000
+```
 
-### Code Splitting
+```bash
+npm start
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+---
 
-### Analyzing the Bundle Size
+## 🎮 How to Play
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+1. **Register** with a username and password — get 1000 free points
+2. **Go to 🏏 IPL** tab to see live and upcoming matches
+3. **Place a bet** by picking a team and amount
+4. **Build a Fantasy 11 squad** for extra points
+5. **Join or create contests** in ⚔️ Multiplayer
+6. **Try your luck** in 💣 Mines
+7. Check the **Leaderboard** to see where you rank!
 
-### Making a Progressive Web App
+---
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+## 🌐 Deployment
 
-### Advanced Configuration
+- **Frontend** → Vercel (auto-deploys on push to `main`)
+- **Backend** → Render (always-on Node.js server)
+- **Database** → MongoDB Atlas
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+---
 
-### Deployment
+## 🤝 Contributing
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+Pull requests are welcome! For major changes, please open an issue first.
 
-### `npm run build` fails to minify
+1. Fork the repo
+2. Create your feature branch (`git checkout -b feat/amazing-feature`)
+3. Commit your changes (`git commit -m 'feat: add amazing feature'`)
+4. Push to the branch (`git push origin feat/amazing-feature`)
+5. Open a Pull Request
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+---
+
+## 📄 License
+
+MIT License — feel free to use this project for learning or personal use.
+
+---
+
+<div align="center">
+  Made with ❤️ by <a href="https://github.com/Ram-anuj-web">Ram Anuj</a>
+</div>
