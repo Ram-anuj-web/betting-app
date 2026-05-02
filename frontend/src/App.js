@@ -140,7 +140,7 @@ function useFloatingPoints() {
   return { floaters, fire };
 }
 
-const API = "https://betting-backend-xq1q.onrender.com";
+const API = process.env.REACT_APP_API_URL;
 
 const SPORTS = [
   { id: "cricket",     name: "Cricket",    emoji: "🏏", teams: ["India", "Australia", "England", "Pakistan"], available: true,  gradientFrom: "#1a2e1a", gradientTo: "#0d1a0d", accentColor: "#22c55e", glowColor: "rgba(34,197,94,0.15)",  tagline: "Live IPL Betting" },
