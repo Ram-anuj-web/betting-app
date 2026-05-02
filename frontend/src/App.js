@@ -5,6 +5,7 @@ import Fantasy11 from "./Fantasy11";
 import Mines from "./Mines";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import ThemeSwitcher from "./ThemeSwitcher";
+import ThemeMusicPlayer from './components/ThemeMusicPlayer';
 import "./App.css";
 
 // ── TOAST SYSTEM ─────────────────────────────────────────────────────────────
