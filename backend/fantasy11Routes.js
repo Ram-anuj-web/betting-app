@@ -81,8 +81,8 @@ const IPL_MATCHES = [
   { id: 70, team1: "KKR",  team2: "DC",   date: "2026-05-24", time: "19:30" },
  { id: "ipl-71", team1: "RCB",  team2: "GT",   date: "2026-05-26", time: "19:30", venue: "Dharamsala" },
      { id: "ipl-72", team1: "SRH",  team2: "RR",   date: "2026-05-27", time: "19:30", venue: "New Chandigarh" },
-     { id: "ipl-73", team1: "RR",  team2: "GT",   date: "2026-05-26", time: "19:30", venue: "New Chandigarh" },
-     { id: "ipl-74", team1: "RCB",  team2: "GT",   date: "2026-05-26", time: "19:30", venue: "Ahemdabaad" },
+     { id: "ipl-73", team1: "RR",  team2: "GT",   date: "2026-05-29", time: "19:30", venue: "New Chandigarh" },
+     { id: "ipl-74", team1: "RCB",  team2: "GT",   date: "2026-05-31", time: "19:30", venue: "Ahemdabaad" },
 ];
 
 // ── Check if a match has started based on IST time ───────────────────────────
